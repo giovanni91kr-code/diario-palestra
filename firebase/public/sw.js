@@ -1,7 +1,7 @@
 /* Service worker: salva l'app sul telefono così si apre anche senza campo.
    Quando pubblichi una versione nuova, aumenta il numero qui sotto. */
-const CACHE = 'diario-palestra-v2';
-const SHELL = ['./', './index.html', './firebase-config.js', './manifest.webmanifest', './icon.svg', './icon-192.png',
+const CACHE = 'diario-palestra-v3';
+const SHELL = ['./', './index.html', './firebase-config.js', './manifest.webmanifest', './icon-v2.svg', './icon-v2-192.png', './icon-v2-180.png', './favicon-v2.png',
   './vendor/firebase-app-compat.js', './vendor/firebase-auth-compat.js', './vendor/firebase-firestore-compat.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
