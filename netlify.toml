@@ -1,0 +1,9 @@
+# Netlify pubblica la cartella firebase/public ad ogni aggiornamento del codice (nessuna build).
+[build]
+  publish = "firebase/public"
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache"
