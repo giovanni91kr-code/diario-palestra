@@ -61,3 +61,11 @@ Nessun framework, nessuna installazione: HTML/CSS/JS puri.
 - **Prima il telefono, poi il cloud:** il salvataggio locale è istantaneo e funziona offline; il cloud serve per non perdere niente e per usarlo su più dispositivi.
 - **Precompilazione dall'ultima sessione:** in palestra di solito tocchi solo ✓, e intervieni con +/− quando migliori. Sono i tocchi minimi possibili.
 - **Doppia progressione:** prima aumenti le ripetizioni dentro il range, poi il peso. È il metodo più semplice e collaudato per l'ipertrofia, e l'app lo segnala da sola.
+
+## Aggiornamenti automatici (GitHub + Netlify)
+
+- Codice: archivio privato GitHub `giovanni91kr-code/diario-palestra` (branch `main`).
+- Sito: `https://diario-palestra-gio.netlify.app`, collegato all'archivio. Ogni modifica caricata su `main` viene pubblicata da sola in circa un minuto (impostazioni in `netlify.toml`: pubblica la cartella `firebase/public`, nessuna build).
+- Dopo una modifica a `app.html`: `python3 build.py && python3 build_firebase.py`, poi commit e push.
+- Il numero di versione (`APP_VERSION` in `app.html`) compare in fondo alla sezione **Dati**: serve a verificare che il telefono abbia la versione nuova.
+- Dati: sempre nel progetto Firebase `diario-palestra-60f90` (Firestore). Gli aggiornamenti del sito non li toccano.
