@@ -172,8 +172,8 @@ s = rep(s, "local: ['Solo su questo dispositivo', 'I dati sono salvati nel brows
            "local: ['Non connesso', 'Accedi con il tuo account per salvare il registro online.'],")
 s = rep(s, "nel tuo account Claude: lo ritrovi da qualsiasi dispositivo.", "nel tuo account: fai login con la stessa email su un altro dispositivo e ritrovi tutto.")
 # card account nella sezione Dati
-s = rep(s, '<h1 class="title">I tuoi dati</h1>',
-        '<h1 class="title">I tuoi dati</h1>\n    <section class="card"><h2>Account</h2><p class="muted">Accesso come <b>${esc(FB.user ? FB.user.email : \'\')}</b>. Usa la stessa email e password su un altro dispositivo per ritrovare tutto lo storico.</p>\n      <button class="btn-ghost sm danger" data-a="logout" data-confirm="Tocca di nuovo per uscire">Esci</button></section>')
+s = rep(s, '<h1 class="title">Impostazioni</h1>',
+        '<h1 class="title">Impostazioni</h1>\n    <section class="card"><h2>Account</h2><p class="muted">Accesso come <b>${esc(FB.user ? FB.user.email : \'\')}</b>. Usa la stessa email e password su un altro dispositivo per ritrovare tutto lo storico.</p>\n      <button class="btn-ghost sm danger" data-a="logout" data-confirm="Tocca di nuovo per uscire">Esci</button></section>')
 s = rep(s, "Il backup JSON serve per ripristinare tutto.", "Il backup JSON serve per ripristinare tutto o per portare qui i dati della versione su Claude (Importa backup).")
 # azioni extra + service worker prima dell'avvio
 s = rep(s, '/* ---------- 8. AVVIO ---------- */', EXTRA_ACTIONS)
