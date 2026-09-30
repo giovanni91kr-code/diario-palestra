@@ -341,6 +341,7 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
+const APP_VERSION = '1.1 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -850,7 +851,8 @@ function vData(){
     <section class="card"><h2>Importa backup</h2><p class="muted">Aggiunge gli allenamenti del file a quelli presenti (nessun doppione) e ripristina le schede del backup.</p>
       <label class="btn-ghost" for="imp">Scegli file JSON</label><input type="file" id="imp" accept=".json,application/json" hidden></section>
     <section class="card"><h2>Schede di esempio</h2><p class="muted">Sostituisce le tue schede con quelle di esempio A / B / C. Lo storico non viene toccato.</p>
-      <button class="btn-ghost danger" data-a="reset-plans" data-confirm="Tocca di nuovo per confermare">Ripristina schede di esempio</button></section>`;
+      <button class="btn-ghost danger" data-a="reset-plans" data-confirm="Tocca di nuovo per confermare">Ripristina schede di esempio</button></section>
+    <p class="muted small" style="grid-column:1/-1">Versione app ${APP_VERSION}</p>`;
 }
 
 /* Menu esercizi per parte del corpo: usato per sostituire, aggiungere e gestire la libreria */
