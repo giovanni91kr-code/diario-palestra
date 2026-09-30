@@ -366,7 +366,7 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.1 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.2 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -599,13 +599,13 @@ function renderGate(){
   if (gateMode === 'offline') { b.innerHTML = `<div class="gate-card"><h2>Nessuna connessione</h2><p class="muted">Per il primo accesso su questo dispositivo serve internet. Dopo, l'app funziona anche offline.</p><div class="stack"><button class="btn" onclick="location.reload()">Riprova</button></div></div>`; return; }
   const reg = gateMode === 'register', reset = gateMode === 'reset';
   b.innerHTML = `${reset ? '' : `<div class="seg" role="group"><button data-a="gate-mode" data-m="login" aria-pressed="${!reg}">Accedi</button><button data-a="gate-mode" data-m="register" aria-pressed="${reg}">Registrati</button></div>`}
-    <form class="gate-card" id="auth-form" novalidate>
+    <form class="gate-card" id="auth-form" method="post" action="#" novalidate>
       <h2>${reset ? 'Recupera password' : reg ? 'Crea il tuo account' : 'Bentornato'}</h2>
       ${reset ? '<p class="muted small">Ti mandiamo un link per scegliere una nuova password.</p>' : ''}
       <label for="au-email">Email</label>
-      <input class="field" id="au-email" type="email" autocomplete="email" inputmode="email" required value="${esc(LS.get('dp.lastEmail', '') || '')}">
+      <input class="field" id="au-email" name="username" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email" required value="${esc(LS.get('dp.lastEmail', '') || '')}">
       ${reset ? '' : `<label for="au-pass">Password</label>
-      <input class="field" id="au-pass" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" required minlength="6" placeholder="${reg ? 'Almeno 6 caratteri' : ''}">`}
+      <input class="field" id="au-pass" name="password" type="password" autocomplete="${reg ? 'new-password' : 'current-password'}" required minlength="6" placeholder="${reg ? 'Almeno 6 caratteri' : ''}">`}
       <div class="gate-msg" id="gate-msg" role="status"></div>
       <div class="stack" style="margin-top:6px"><button class="btn big" type="submit" id="au-go">${reset ? 'Invia link' : reg ? 'Registrati' : 'Accedi'}</button></div>
       ${reset ? '<button type="button" class="link" data-a="gate-mode" data-m="login" style="margin-top:10px">← Torna ad Accedi</button>'
@@ -623,8 +623,15 @@ document.addEventListener('submit', async ev => {
   const btn = $('#au-go'), label = btn.textContent; btn.disabled = true; btn.textContent = 'Attendere…'; gateMsg('', true);
   try {
     if (gateMode === 'reset') { await FB.auth.sendPasswordResetEmail(email); gateMsg('Fatto: controlla la posta (anche lo spam).', true); }
-    else if (gateMode === 'register') await FB.auth.createUserWithEmailAndPassword(email, pass);
-    else await FB.auth.signInWithEmailAndPassword(email, pass);
+    else {
+      if (gateMode === 'register') await FB.auth.createUserWithEmailAndPassword(email, pass);
+      else await FB.auth.signInWithEmailAndPassword(email, pass);
+      // Chiede al browser di salvare la password (Chrome/Android); poi toglie il modulo:
+      // così anche Safari/iPhone riconosce l'accesso riuscito e propone "Salva password" nel Portachiavi.
+      try { if (window.PasswordCredential) await navigator.credentials.store(new PasswordCredential({id: email, password: pass, name: email})); } catch (e2) {}
+      const form = $('#auth-form'); if (form) form.remove();
+      return;
+    }
   } catch (e) { gateMsg(AUTH_ERR[e && e.code] || 'Qualcosa non ha funzionato. Riprova.'); }
   if (btn.isConnected) { btn.disabled = false; btn.textContent = label; }
 });

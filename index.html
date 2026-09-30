@@ -341,7 +341,7 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.1 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.2 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
