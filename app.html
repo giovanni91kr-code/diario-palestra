@@ -349,7 +349,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.5 · 1 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.6 · 1 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -516,7 +516,7 @@ function sync(){ return serial(async () => {
     merged.sort((a, b) => a.start - b.start);
     S.sessions = merged;
     if (plansDoc && (plansDoc.updatedAt || 0) > (S.plansUpdatedAt || 0) && Array.isArray(plansDoc.plans)) {
-      S.plans = upgradePlans(plansDoc.plans, plansDoc.v); if (Array.isArray(plansDoc.library)) S.library = plansDoc.library; ensureCardio(); S.plans.forEach(p => p.exercises.forEach(e => ensureInLibrary(e.name, e.group))); S.settings = Object.assign({rest: 90}, plansDoc.settings || {}); S.plansUpdatedAt = plansDoc.updatedAt;
+      S.plans = upgradePlans(plansDoc.plans, plansDoc.v); if (Array.isArray(plansDoc.library)) S.library = plansDoc.library; ensureCardio(); S.plans.forEach(p => p.exercises.forEach(e => ensureInLibrary(e.name, e.group))); fixKinds(); S.settings = Object.assign({rest: 90}, plansDoc.settings || {}); S.plansUpdatedAt = plansDoc.updatedAt;
     } else if (!plansDoc || (S.plansUpdatedAt || 0) > (plansDoc.updatedAt || 0) || (plansDoc.v || 1) < 3) addPending('plans');
     persist();
     const ok = await flush();
@@ -715,6 +715,7 @@ function exCard(e, i){
     <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
     ${e.planNote ? `<p class="ex-note">${esc(e.planNote)}</p>` : ''}
     ${lastHtml}${hint}
+    ${kind === 'tapis' ? '<p class="muted small" style="margin:8px 4px 0">Cambi velocità o inclinazione durante la corsa? Tocca <b>+</b> su Tratti e segna ogni parte (es. 10 min al 5% e 10 min al 12%).</p>' : ''}
     <div class="sets">${cardio ? '' : '<div class="set-head"><span>#</span><span>kg</span><span>reps</span><span></span></div>'}${rows}</div>
     ${e.showNote || e.note ? `<textarea class="note-in" data-f="note" rows="1" placeholder="Nota rapida (es. sedile 4, presa stretta)">${esc(e.note)}</textarea>` : ''}
     <div class="ex-actions"><div class="setstep"><span>${cardio ? 'Tratti' : 'Serie'}</span><button data-a="set-" ${e.sets.length <= 1 ? 'disabled' : ''} aria-label="Togli ${cardio ? 'un tratto' : 'una serie'}">−</button><b>${e.sets.length}</b><button data-a="set+" aria-label="Aggiungi ${cardio ? 'un tratto' : 'una serie'}">+</button></div>
@@ -969,7 +970,7 @@ function startWorkout(pid){
   if (!D) {
     if (!p.exercises.length && pid !== 'free') { toast('Aggiungi prima qualche esercizio a questa scheda'); editPlanId = p.id; view = 'plans'; return render(); }
     D = {planId: p.id, planName: p.name, start: Date.now(), exercises: p.exercises.map(e => {
-      const kind = e.kind || kindOf(e.name), sets = initSets(lastFor(e.id, e.name), kind, e.sets, e.repMin);
+      const kind = kindOf(e.name), sets = initSets(lastFor(e.id, e.name), kind, e.sets, e.repMin);
       return {exId: e.id, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin, repMax: e.repMax, rest: e.rest, step: e.step, planNote: e.note, note: '', sets};
     })};
     persistDraft();
@@ -1159,7 +1160,7 @@ document.addEventListener('change', ev => {
   if (t.tagName === 'SELECT' && t.dataset.ef === 'name') {
     const k = +t.closest('.pex').dataset.k, e = planById(editPlanId).exercises[k];
     if (t.value === '__new') { refreshPex(k); return openPicker('plan-set', k, e.group || 'Petto', true); }
-    e.name = t.value; e.group = groupOf(t.value); e.id = uid(); markPlansDirty(); return;
+    e.name = t.value; e.group = groupOf(t.value); e.kind = kindOf(t.value); if (e.kind !== 'strength') e.sets = 1; e.id = uid(); markPlansDirty(); refreshPex(k); return;
   }
   if (t.classList.contains('num') && t.closest('.ex')) { persistDraft(); refreshCard(+t.closest('.ex').dataset.i); }
   if (t.dataset.pf === 'name' && !t.value.trim()) { planById(editPlanId).name = 'Scheda'; markPlansDirty(); render(); }
@@ -1201,6 +1202,15 @@ document.addEventListener('visibilitychange', () => {
   if (C.col && Date.now() - C.lastSync > 20000) sync();
 });
 window.addEventListener('online', () => sync());
+// Correzione: esercizi cardio (es. tapis roulant) scelti dal menu prima della v1.6 risultavano "a pesi"
+function fixKinds(){
+  let changed = false;
+  S.plans.forEach(p => p.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k) { e.kind = k; if (k !== 'strength') e.sets = 1; changed = true; } }));
+  if (D) D.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k && !e.sets.some(x => x.done)) { e.kind = k; e.sets = initSets(lastFor(null, e.name), k, k === 'strength' ? 3 : 1, e.repMin || 10); } });
+  return changed;
+}
+if (fixKinds()) { persist(); if (S.plansUpdatedAt) markPlansDirty(); }
+persistDraft();
 if (D) view = 'workout';
 render();
 cloudInit();
