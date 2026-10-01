@@ -250,7 +250,18 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
 .mini-s button{width:40px;height:40px;border:0;background:none;font-size:22px;color:var(--muted)}
 .mini-s b{font:700 20px var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
 .pex-note{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 10px;margin-top:8px;font-size:15px}
-.pex-foot{display:flex;justify-content:flex-end;margin-top:6px}
+.pex-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.ex-tools{flex-wrap:wrap}
+.ex-tools button{white-space:nowrap;padding:0 10px}
+.ex-actions button{white-space:nowrap}
+.ex-actions{flex-wrap:nowrap;align-items:center}
+.ss-btn[aria-pressed="true"],.ex-tools button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.pex.ss-a,.pex.ss-b{border-left:4px solid var(--accent)}
+.pex.ss-a{margin-bottom:-4px}
+.ss-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:8px}
+.ss-group{border-left:4px solid var(--accent);padding-left:10px;margin-top:16px}
+.ss-group .ex{margin-top:8px}
+.ss-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
 .add{width:100%;margin-top:12px;min-height:52px;border-radius:var(--r);border:2px dashed var(--line);background:none;font-weight:600;color:var(--accent)}
 
 /* dati */
@@ -278,6 +289,9 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
   .resume{max-width:520px}
   .ex-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-top:14px}
   .ex-list .ex{margin-top:0}
+  .ex-list .ss-group{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin-top:0;align-items:start}
+  .ss-group .ss-label{grid-column:1/-1}
+  .ss-group .ex{margin-top:0}
   .wk-head{margin-inline:-32px;padding-inline:28px 32px}
   .wk-extra{flex-direction:row;justify-content:center}
   .wk-extra .btn,.wk-extra .btn-ghost{flex:0 1 320px}
@@ -345,7 +359,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.4 · 30 set 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.5 · 1 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -655,12 +669,25 @@ function vWorkout(){
   return `<div class="wk-head"><button class="back" data-a="go" data-v="home" aria-label="Torna alla home">‹</button>
     <div class="wk-t"><div class="wk-name">${esc(D.planName)}</div>
     <div class="wk-meta"><span id="elapsed">${fmtDur(Date.now() - D.start)}</span> · iniziato alle ${fmtClock(D.start)}</div></div></div>
-    <div class="ex-list">${D.exercises.map(exCard).join('')}</div>
+    <div class="ex-list">${exBlocks()}</div>
     ${D.exercises.length ? '' : `<div class="empty" style="margin-top:14px"><b>Scegli il primo esercizio</b>Aggiungili uno alla volta mentre ti alleni: pesi e ripetizioni partono dall'ultima volta.</div>`}
     <div class="wk-extra"><button class="${D.planId === 'free' ? 'btn big' : 'btn-ghost'}" data-a="add-extra">+ ${D.planId === 'free' ? 'Aggiungi esercizio' : 'Esercizio extra'}</button>
     <button class="btn-ghost danger" data-a="discard">Annulla allenamento</button></div>`;
 }
 
+// Raggruppa gli esercizi collegati in superserie (ss = collegato al successivo)
+function exBlocks(){
+  const X = D.exercises; let h = '', i = 0;
+  while (i < X.length) {
+    if (X[i].ss && i + 1 < X.length) {
+      const ids = []; let j = i;
+      while (j < X.length) { ids.push(j); if (!(X[j].ss && j + 1 < X.length)) break; j++; }
+      h += `<div class="ss-group"><div class="ss-label">Superserie · ${ids.length} esercizi di fila, recupero solo dopo l'ultimo</div>${ids.map(k => exCard(X[k], k)).join('')}</div>`;
+      i = j + 1;
+    } else { h += exCard(X[i], i); i++; }
+  }
+  return h;
+}
 function exCard(e, i){
   if (e.skipped) return `<section class="ex skipped" id="ex-${i}" data-i="${i}"><div class="skip-row"><div style="min-width:0">
     <div class="ex-name">${esc(e.name)}</div><div class="muted small">Saltato · non finisce nel registro</div></div>
@@ -695,7 +722,7 @@ function exCard(e, i){
     <header class="ex-head"><div><h2 class="ex-name">${esc(e.name)}</h2>
       <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : `${e.sets.length} × ${e.repMin}–${e.repMax} · recupero ${fmtRest(e.rest)}`}</div>
       ${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}</div>${b}</header>
-    <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}</div>
+    <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
     ${e.planNote ? `<p class="ex-note">${esc(e.planNote)}</p>` : ''}
     ${lastHtml}${hint}
     <div class="sets">${cardio ? '' : '<div class="set-head"><span>#</span><span>kg</span><span>reps</span><span></span></div>'}${rows}</div>
@@ -724,7 +751,8 @@ function vSummary(){
     <div class="card" style="padding-block:4px">${s.items.map(x => `<div class="sx"><div style="min-width:0"><div class="sx-n">${esc(x.name)}</div>
       <div class="sx-s">${fmtSets(x.sets)}</div>${x.prev ? `<div class="muted small">prima: ${fmtSets(x.prev)}</div>` : ''}</div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge(x.c)}${x.pr ? '<span class="badge pr">Record</span>' : ''}</div></div>`).join('')}</div>
-    <div class="stack"><button class="btn big" data-a="go" data-v="home">Fatto</button></div>`;
+    <div class="stack"><button class="btn big" data-a="go" data-v="home">Fatto</button>
+      <button class="btn-ghost danger" data-a="del-last" data-confirm="Tocca di nuovo per toglierlo dal registro">Era una prova: elimina dal registro</button></div>`;
 }
 
 function vHistory(){
@@ -823,12 +851,14 @@ function vPlans(){
 }
 function mini(label, f, val){ return `<div class="mini"><span class="mini-l">${label}</span><div class="mini-s"><button data-a="ef-" data-f="${f}" aria-label="${label} meno">−</button><b>${val}</b><button data-a="ef+" data-f="${f}" aria-label="${label} più">+</button></div></div>`; }
 function pexCard(e, k, n){
-  return `<section class="pex" data-k="${k}">
+  const prev = k > 0 ? planById(editPlanId).exercises[k - 1] : null;
+  return `<section class="pex${e.ss && k < n - 1 ? ' ss-a' : ''}${prev && prev.ss ? ' ss-b' : ''}" data-k="${k}">
+    ${prev && prev.ss ? '<div class="ss-tag">Superserie con l\'esercizio sopra</div>' : ''}
     <div class="pex-top"><span class="pex-n">${k + 1}</span>${libSelect(k, e.name)}
       <div class="pex-move"><button data-a="ex-up" ${k === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="ex-down" ${k === n - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div>
     <div class="pex-grid">${(e.kind || 'strength') !== 'strength' ? mini('Tratti', 'sets', e.sets) + mini('Recupero', 'rest', fmtRest(e.rest)) : `${mini('Serie', 'sets', e.sets)}${mini('Reps min', 'repMin', e.repMin)}${mini('Reps max', 'repMax', e.repMax)}${mini('Recupero', 'rest', fmtRest(e.rest))}${mini('Salto peso', 'step', fmtNum(e.step) + ' kg')}`}</div>
     <input class="pex-note" id="pex-note-${k}" data-ef="note" value="${esc(e.note)}" placeholder="Alternative o note (es. Alt: chest press)" aria-label="Note">
-    <div class="pex-foot"><button class="btn-ghost danger sm" data-a="ex-del" data-confirm="Conferma rimozione">Rimuovi</button></div></section>`;
+    <div class="pex-foot">${k < n - 1 ? `<button class="btn-ghost sm ss-btn" data-a="ex-ss" aria-pressed="${!!e.ss}">${e.ss ? 'Superserie con il successivo ✓' : '+ Superserie con il successivo'}</button>` : '<span></span>'}<button class="btn-ghost danger sm" data-a="ex-del" data-confirm="Conferma rimozione">Rimuovi</button></div></section>`;
 }
 function libSelect(k, name){
   const has = S.library.some(x => norm(x.name) === norm(name));
@@ -950,7 +980,7 @@ function startWorkout(pid){
     if (!p.exercises.length && pid !== 'free') { toast('Aggiungi prima qualche esercizio a questa scheda'); editPlanId = p.id; view = 'plans'; return render(); }
     D = {planId: p.id, planName: p.name, start: Date.now(), exercises: p.exercises.map(e => {
       const kind = e.kind || kindOf(e.name), sets = initSets(lastFor(e.id, e.name), kind, e.sets, e.repMin);
-      return {exId: e.id, name: e.name, group: e.group || groupOf(e.name), kind, repMin: e.repMin, repMax: e.repMax, rest: e.rest, step: e.step, planNote: e.note, note: '', sets};
+      return {exId: e.id, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin, repMax: e.repMax, rest: e.rest, step: e.step, planNote: e.note, note: '', sets};
     })};
     persistDraft();
   }
@@ -971,7 +1001,7 @@ function adjust(i, j, f, dir){
 function saveWorkout(mode){
   const s = {id: uid(), planId: D.planId, planName: D.planName, start: D.start, end: Date.now(),
     skipped: D.exercises.filter(e => e.skipped).map(e => e.name),
-    exercises: D.exercises.filter(e => !e.skipped).map(e => ({exId: e.exId, name: e.name, group: e.group, swappedFrom: e.swappedFrom || undefined, repMin: e.repMin, repMax: e.repMax, note: e.note.trim(),
+    exercises: D.exercises.filter(e => !e.skipped).map(e => ({exId: e.exId, name: e.name, group: e.group, ss: e.ss || undefined, swappedFrom: e.swappedFrom || undefined, repMin: e.repMin, repMax: e.repMax, note: e.note.trim(),
       sets: e.sets.filter(x => (mode === 'all' || x.done) && (isCardio(x) ? x.min > 0 : x.r > 0)).map(({done, ...x}) => x)})).filter(e => e.sets.length)};
   if (!s.exercises.length) { closeSheet(); return toast(D.exercises.length ? 'Nessuna serie da salvare' : 'Aggiungi almeno un esercizio'); }
   const items = s.exercises.map(e => {
@@ -979,7 +1009,7 @@ function saveWorkout(mode){
     const prevBest = hist.length ? Math.max(...hist.flatMap(h => h.sets.map(metric))) : 0;
     return {name: e.name, sets: e.sets, prev: prev && prev.sets, c: prev ? cmpSets(e.sets, prev.sets) : 'new', pr: hist.length > 0 && Math.max(...e.sets.map(metric)) > prevBest * 1.001};
   });
-  lastSummary = {planName: s.planName, start: s.start, dur: s.end - s.start, items,
+  lastSummary = {sid: s.id, planName: s.planName, start: s.start, dur: s.end - s.start, items,
     nSets: s.exercises.reduce((a, e) => a + e.sets.length, 0), vol: s.exercises.reduce((a, e) => a + volume(e.sets), 0),
     ups: items.filter(x => x.c === 'up').length, prs: items.filter(x => x.pr).length};
   S.sessions.push(s); S.sessions.sort((a, b) => a.start - b.start); persist(); queue('s-' + s.id);
@@ -1026,6 +1056,7 @@ const ACT = {
   resume: () => { closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake(); },
   'switch-ok': b => { D = null; persistDraft(); stopRest(); startWorkout(b.dataset.id); },
   'f-': (b, i, j) => adjust(i, j, b.dataset.f, -1), 'f+': (b, i, j) => adjust(i, j, b.dataset.f, 1),
+  'wk-ss': (b, i) => { D.exercises[i].ss = !D.exercises[i].ss; persistDraft(); render(); },
   remove: (b, i) => { D.exercises.splice(i, 1); persistDraft(); render(); toast('Esercizio rimosso'); },
   'w-': (b, i, j) => adjust(i, j, 'w', -1), 'w+': (b, i, j) => adjust(i, j, 'w', 1),
   'r-': (b, i, j) => adjust(i, j, 'r', -1), 'r+': (b, i, j) => adjust(i, j, 'r', 1),
@@ -1033,7 +1064,11 @@ const ACT = {
     ensureAudio();
     const e = D.exercises[i], s = e.sets[j]; s.done = !s.done; persistDraft(); refreshCard(i);
     if (s.done) {
-      vib(25); if ((e.kind || 'strength') === 'strength') startRest(e.rest || S.settings.rest || 90); else if (e.rest) startRest(e.rest);
+      vib(25);
+      const nx = D.exercises[i + 1];
+      if (e.ss && nx && !nx.skipped) {   // superserie: niente recupero, si passa subito al prossimo esercizio
+        stopRest(); setTimeout(() => { const n = $('#ex-' + (i + 1)); if (n) n.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 300);
+      } else if ((e.kind || 'strength') === 'strength') startRest(e.rest || S.settings.rest || 90); else if (e.rest) startRest(e.rest);
       if (e.sets.every(x => x.done) && D.exercises[i + 1]) setTimeout(() => { const n = $('#ex-' + (i + 1)); if (n) n.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 350);
     }
   },
@@ -1062,10 +1097,11 @@ const ACT = {
   'add-extra': () => { const l = D && D.exercises[D.exercises.length - 1]; openPicker('extra', -1, l ? l.group || groupOf(l.name) : 'Petto'); },
   discard: () => sheet(`<h2>Annullare l'allenamento?</h2><p class="muted">Le serie inserite in questa seduta non verranno salvate.</p>
     <div class="stack"><button class="btn-ghost danger" data-a="discard-ok">Sì, annulla allenamento</button><button class="btn" data-a="sheet-close">Continua ad allenarti</button></div>`),
+  'del-last': () => { const id = lastSummary && lastSummary.sid; if (id) { S.sessions = S.sessions.filter(x => x.id !== id); persist(); queue('del:s-' + id); } lastSummary = null; view = 'home'; render(); toast('Allenamento eliminato'); },
   'discard-ok': () => { D = null; persistDraft(); unwake(); stopRest(); closeSheet(); view = 'home'; render(); },
   save: () => {
     const tot = totalSets(D), dn = doneCount(D), dur = fmtMin(Date.now() - D.start);
-    const cont = '<button class="btn-ghost" data-a="sheet-close">Continua ad allenarti</button>';
+    const cont = '<button class="btn-ghost" data-a="sheet-close">Continua ad allenarti</button><button class="btn-ghost danger" data-a="discard-ok" data-confirm="Tocca di nuovo: niente finirà nel registro">Elimina senza salvare</button>';
     const sk = D.exercises.filter(e => e.skipped).length; const skTxt = sk ? ` · ${sk} ${sk === 1 ? 'esercizio saltato' : 'esercizi saltati'}` : '';
     if (dn === tot) return sheet(`<h2>Chiudere l'allenamento?</h2><p class="muted">Tutte le ${dn} serie completate · ${dur}${skTxt}</p><div class="stack"><button class="btn big" data-a="save-all">Chiudi e salva</button>${cont}</div>`);
     if (dn === 0) return sheet(`<h2>Chiudere l'allenamento?</h2><p class="muted">Non hai spuntato nessuna serie. Salvo tutte le ${tot} serie con i valori inseriti?${skTxt}</p><div class="stack"><button class="btn big" data-a="save-all">Salva tutte le serie</button>${cont}</div>`);
@@ -1083,6 +1119,7 @@ const ACT = {
   'plan-add': () => { const p = {id: uid(), name: 'Giorno ' + String.fromCharCode(65 + S.plans.length), exercises: []}; S.plans.push(p); editPlanId = p.id; markPlansDirty(); render(); },
   'plan-del': () => { if (S.plans.length <= 1) return toast('Serve almeno una scheda'); S.plans = S.plans.filter(p => p.id !== editPlanId); editPlanId = null; markPlansDirty(); render(); toast('Scheda eliminata'); },
   'ex-add': () => { const p = planById(editPlanId), l = p.exercises[p.exercises.length - 1]; openPicker('plan-add', -1, l ? l.group || groupOf(l.name) : 'Petto'); },
+  'ex-ss': b => { const e = planById(editPlanId).exercises[+b.closest('.pex').dataset.k]; e.ss = !e.ss; markPlansDirty(); render(); },
   'ex-del': b => { const p = planById(editPlanId); p.exercises.splice(+b.closest('.pex').dataset.k, 1); markPlansDirty(); render(); },
   'ex-up': b => movePex(+b.closest('.pex').dataset.k, -1), 'ex-down': b => movePex(+b.closest('.pex').dataset.k, 1),
   'ef-': b => stepField(b, -1), 'ef+': b => stepField(b, 1),
