@@ -242,6 +242,10 @@ body[data-view="workout"] .rest{bottom:calc(76px + env(safe-area-inset-bottom,0p
 .pex-note{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 10px;margin-top:8px;font-size:15px}
 .pex-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 .ex-tools{flex-wrap:wrap}
+.ex-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.ex-move{display:flex;gap:4px}
+.ex-move button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:18px;color:var(--ink);padding:0}
+.ex.moved{box-shadow:0 0 0 3px var(--accent)}
 .ex-tools button{white-space:nowrap;padding:0 10px}
 .ex-actions button{white-space:nowrap}
 .ex-actions{flex-wrap:nowrap;align-items:center}
@@ -349,7 +353,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.6 · 1 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.7 · 2 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -666,6 +670,12 @@ function vWorkout(){
 }
 
 // Raggruppa gli esercizi collegati in superserie (ss = collegato al successivo)
+// Sposta un esercizio su/giù solo in questo allenamento (la scheda non cambia)
+function moveEx(i, dir){
+  const X = D.exercises, t = i + dir; if (t < 0 || t >= X.length) return;
+  [X[i], X[t]] = [X[t], X[i]]; persistDraft(); render();
+  const el = $('#ex-' + t); if (el) { el.scrollIntoView({block: 'center'}); el.classList.add('moved'); setTimeout(() => el.classList.remove('moved'), 900); }
+}
 function exBlocks(){
   const X = D.exercises; let h = '', i = 0;
   while (i < X.length) {
@@ -711,7 +721,8 @@ function exCard(e, i){
   return `<section class="ex${complete ? ' complete' : ''}" id="ex-${i}" data-i="${i}">
     <header class="ex-head"><div><h2 class="ex-name">${esc(e.name)}</h2>
       <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : `${e.sets.length} × ${e.repMin}–${e.repMax} · recupero ${fmtRest(e.rest)}`}</div>
-      ${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}</div>${b}</header>
+      ${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}</div>
+      <div class="ex-side">${b}<div class="ex-move"><button data-a="wk-up" ${i === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="wk-down" ${i === D.exercises.length - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div></header>
     <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
     ${e.planNote ? `<p class="ex-note">${esc(e.planNote)}</p>` : ''}
     ${lastHtml}${hint}
@@ -885,7 +896,7 @@ function vData(){
 /* Menu esercizi per parte del corpo: usato per sostituire, aggiungere e gestire la libreria */
 let PK = {mode: '', i: -1, group: 'Petto', q: '', creating: false};
 function openPicker(mode, i = -1, group, creating = false){
-  PK = {mode, i, group: GROUPS.includes(group) ? group : GROUPS[0], q: '', creating};
+  PK = {mode, i, group: GROUPS.includes(group) ? group : GROUPS[0], q: '', creating, pos: 'end'};
   sheet(pickerHtml()); PK.creating && setTimeout(() => { const f = $('#new-name'); if (f) f.focus(); }, 60);
 }
 function pickerHtml(){
@@ -898,6 +909,7 @@ function pickerHtml(){
   return `<button class="x" data-a="sheet-close" aria-label="Chiudi">✕</button><h2>${T[PK.mode]}</h2>${sub}
     <input id="pick-q" class="field" type="search" placeholder="Cerca esercizio…" autocomplete="off" value="${esc(PK.q)}">
     <div class="chips" id="pick-groups" style="margin-top:10px">${groups.map(g => `<button data-a="pick-group" data-g="${esc(g)}" aria-pressed="${!PK.q && g === PK.group}">${esc(g)}</button>`).join('')}</div>
+    ${PK.mode === 'extra' && D && D.exercises.length ? `<div class="seg" id="pick-pos" role="group" style="margin:10px 0 0"><button data-a="pick-pos" data-p="start" aria-pressed="false">Mettilo all'inizio</button><button data-a="pick-pos" data-p="end" aria-pressed="true">Mettilo in fondo</button></div>` : ''}
     <div id="pick-list" class="pick-list">${pickListHtml()}</div>
     <div id="pick-new">${newFormHtml()}</div>`;
 }
@@ -947,8 +959,10 @@ function choose(name){
     e.name = name; e.group = group; e.bumped = false;
     persistDraft(); closeSheet(); refreshCard(PK.i); toast('Esercizio sostituito');
   } else if (PK.mode === 'extra') {
-    D.exercises.push({exId: null, name, group, kind: kindOf(name), repMin: 8, repMax: 12, rest: kindOf(name) === 'strength' ? 90 : 0, step: 0.5, planNote: '', note: '', extra: true, sets: draftEx(name, group)});
-    persistDraft(); closeSheet(); render(); const n = $('#ex-' + (D.exercises.length - 1)); if (n) n.scrollIntoView({block: 'start'});
+    const nx = {exId: null, name, group, kind: kindOf(name), repMin: 8, repMax: 12, rest: kindOf(name) === 'strength' ? 90 : 0, step: 0.5, planNote: '', note: '', extra: true, sets: draftEx(name, group)};
+    const at = PK.pos === 'start' ? 0 : D.exercises.length;
+    D.exercises.splice(at, 0, nx);
+    persistDraft(); closeSheet(); render(); const n = $('#ex-' + at); if (n) n.scrollIntoView({block: 'start'});
   } else if (PK.mode === 'plan-add') {
     const p = planById(editPlanId), k = kindOf(name); p.exercises.push(ex(name, k === 'strength' ? 3 : 1, 8, 12, '', k === 'strength' ? 90 : 0)); Object.assign(p.exercises[p.exercises.length - 1], {group, kind: k});
     markPlansDirty(); closeSheet(); render(); const f = $(`.pex[data-k="${p.exercises.length - 1}"]`); if (f) f.scrollIntoView({block: 'center'});
@@ -1047,6 +1061,8 @@ const ACT = {
   resume: () => { closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake(); },
   'switch-ok': b => { D = null; persistDraft(); stopRest(); startWorkout(b.dataset.id); },
   'f-': (b, i, j) => adjust(i, j, b.dataset.f, -1), 'f+': (b, i, j) => adjust(i, j, b.dataset.f, 1),
+  'wk-up': (b, i) => moveEx(i, -1), 'wk-down': (b, i) => moveEx(i, 1),
+  'pick-pos': b => { PK.pos = b.dataset.p; document.querySelectorAll('#pick-pos button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === PK.pos)); },
   'wk-ss': (b, i) => { D.exercises[i].ss = !D.exercises[i].ss; persistDraft(); render(); },
   remove: (b, i) => { D.exercises.splice(i, 1); persistDraft(); render(); toast('Esercizio rimosso'); },
   'w-': (b, i, j) => adjust(i, j, 'w', -1), 'w+': (b, i, j) => adjust(i, j, 'w', 1),
