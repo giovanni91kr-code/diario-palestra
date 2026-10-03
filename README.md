@@ -17,7 +17,6 @@ Web app mobile-first per registrare gli allenamenti A / B / C e progredire nel t
 1. **Allena** → tocca Giorno A, B o C, oppure **Allenamento libero** (parti senza scheda e aggiungi gli esercizi dal menu mentre ti alleni). La scheda "Prossima" è evidenziata in blu (segue l'ordine A → B → C).
 2. Ogni esercizio mostra **Ultima volta: 40 kg × 10, 10, 9** e i campi sono **già compilati** con quei valori.
 3. Per ogni serie: correggi con **−/+** (o tocca il numero e scrivi), poi tocca **✓**. Il peso sale e scende di **0,5 kg** (si cambia per esercizio in Schede).
-   - Il ✓ avvia il **timer di recupero** (tempo impostato per esercizio, ±15 s, suono e vibrazione a fine).
    - Il numero della serie si colora: **verde** = meglio dell'ultima volta, **grigio** = pari, **rosso** = peggio.
    - Se cambi il peso della serie 1, le serie successive si aggiornano da sole.
 4. Se l'ultima volta hai chiuso il range di ripetizioni su tutte le serie, compare **"sali di peso +0,5 kg"**: un tocco e il peso aumenta su tutte le serie.
@@ -33,7 +32,7 @@ Se chiudi l'app a metà allenamento, lo ritrovi in home con **Riprendi**.
 ## Le altre sezioni
 
 - **Registro** → *Allenamenti* (per data, con ▲ migliorati / ▼ peggiorati) oppure *Esercizi* (ultima volta, miglior serie, andamento, grafico della forza stimata).
-- **Schede** → scegli gli esercizi da un menu a tendina diviso per parte del corpo; modifica nome scheda, serie, range ripetizioni, recupero, salto di peso, note/alternative; riordina con ↑ ↓. Si salva da solo. In fondo c'è la **Libreria esercizi** (circa 80 già pronti, compresa la categoria **Cardio**: il tapis roulant registra durata, velocità e inclinazione; cyclette, ellittica ecc. durata e livello): puoi aggiungerne o toglierne.
+- **Schede** → scegli gli esercizi da un menu a tendina diviso per parte del corpo; modifica nome scheda, serie, range ripetizioni, salto di peso, note/alternative; riordina con ↑ ↓. Si salva da solo. In fondo c'è la **Libreria esercizi** (circa 80 già pronti, compresa la categoria **Cardio**: il tapis roulant registra durata, velocità e inclinazione; cyclette, ellittica ecc. durata e livello): puoi aggiungerne o toglierne.
 - **Dati** → stato del salvataggio, esporta **CSV** (Excel, una riga per serie), **backup JSON**, importa backup, ripristina schede di esempio.
 
 ## Dove finiscono i dati

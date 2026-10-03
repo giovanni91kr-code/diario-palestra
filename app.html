@@ -329,15 +329,6 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
   <button class="btn big" data-a="save">Chiudi e salva</button>
 </div></div>
 
-<div class="rest" id="rest" hidden><div class="rest-in">
-  <div class="rest-fill" id="rest-fill"></div>
-  <span class="rest-l" id="rest-l">Recupero</span>
-  <b class="rest-t" id="rest-t">0:00</b>
-  <button data-a="rest-" aria-label="Togli 15 secondi">−15</button>
-  <button data-a="rest+" aria-label="Aggiungi 15 secondi">+15</button>
-  <button data-a="rest-x" aria-label="Chiudi timer">✕</button>
-</div></div>
-
 <div class="sheet" id="sheet" hidden>
   <button class="scrim" data-a="sheet-close" aria-label="Chiudi"></button>
   <div class="panel" role="dialog" aria-modal="true"><div id="sheet-body"></div></div>
@@ -353,7 +344,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.7 · 2 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.8 · 3 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -682,7 +673,7 @@ function exBlocks(){
     if (X[i].ss && i + 1 < X.length) {
       const ids = []; let j = i;
       while (j < X.length) { ids.push(j); if (!(X[j].ss && j + 1 < X.length)) break; j++; }
-      h += `<div class="ss-group"><div class="ss-label">Superserie · ${ids.length} esercizi di fila, recupero solo dopo l'ultimo</div>${ids.map(k => exCard(X[k], k)).join('')}</div>`;
+      h += `<div class="ss-group"><div class="ss-label">Superserie · ${ids.length} esercizi di fila</div>${ids.map(k => exCard(X[k], k)).join('')}</div>`;
       i = j + 1;
     } else { h += exCard(X[i], i); i++; }
   }
@@ -720,7 +711,7 @@ function exCard(e, i){
   }).join('');
   return `<section class="ex${complete ? ' complete' : ''}" id="ex-${i}" data-i="${i}">
     <header class="ex-head"><div><h2 class="ex-name">${esc(e.name)}</h2>
-      <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : `${e.sets.length} × ${e.repMin}–${e.repMax} · recupero ${fmtRest(e.rest)}`}</div>
+      <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : `${e.sets.length} × ${e.repMin}–${e.repMax}`}</div>
       ${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}</div>
       <div class="ex-side">${b}<div class="ex-move"><button data-a="wk-up" ${i === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="wk-down" ${i === D.exercises.length - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div></header>
     <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
@@ -858,7 +849,7 @@ function pexCard(e, k, n){
     ${prev && prev.ss ? '<div class="ss-tag">Superserie con l\'esercizio sopra</div>' : ''}
     <div class="pex-top"><span class="pex-n">${k + 1}</span>${libSelect(k, e.name)}
       <div class="pex-move"><button data-a="ex-up" ${k === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="ex-down" ${k === n - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div>
-    <div class="pex-grid">${(e.kind || 'strength') !== 'strength' ? mini('Tratti', 'sets', e.sets) + mini('Recupero', 'rest', fmtRest(e.rest)) : `${mini('Serie', 'sets', e.sets)}${mini('Reps min', 'repMin', e.repMin)}${mini('Reps max', 'repMax', e.repMax)}${mini('Recupero', 'rest', fmtRest(e.rest))}${mini('Salto peso', 'step', fmtNum(e.step) + ' kg')}`}</div>
+    <div class="pex-grid">${(e.kind || 'strength') !== 'strength' ? mini('Tratti', 'sets', e.sets) : `${mini('Serie', 'sets', e.sets)}${mini('Reps min', 'repMin', e.repMin)}${mini('Reps max', 'repMax', e.repMax)}${mini('Salto peso', 'step', fmtNum(e.step) + ' kg')}`}</div>
     <input class="pex-note" id="pex-note-${k}" data-ef="note" value="${esc(e.note)}" placeholder="Alternative o note (es. Alt: chest press)" aria-label="Note">
     <div class="pex-foot">${k < n - 1 ? `<button class="btn-ghost sm ss-btn" data-a="ex-ss" aria-pressed="${!!e.ss}">${e.ss ? 'Superserie con il successivo ✓' : '+ Superserie con il successivo'}</button>` : '<span></span>'}<button class="btn-ghost danger sm" data-a="ex-del" data-confirm="Conferma rimozione">Rimuovi</button></div></section>`;
 }
@@ -1073,9 +1064,9 @@ const ACT = {
     if (s.done) {
       vib(25);
       const nx = D.exercises[i + 1];
-      if (e.ss && nx && !nx.skipped) {   // superserie: niente recupero, si passa subito al prossimo esercizio
-        stopRest(); setTimeout(() => { const n = $('#ex-' + (i + 1)); if (n) n.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 300);
-      } else if ((e.kind || 'strength') === 'strength') startRest(e.rest || S.settings.rest || 90); else if (e.rest) startRest(e.rest);
+      if (e.ss && nx && !nx.skipped) {   // superserie: si passa subito al prossimo esercizio
+        setTimeout(() => { const n = $('#ex-' + (i + 1)); if (n) n.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 300);
+      }
       if (e.sets.every(x => x.done) && D.exercises[i + 1]) setTimeout(() => { const n = $('#ex-' + (i + 1)); if (n) n.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 350);
     }
   },
@@ -1134,7 +1125,6 @@ const ACT = {
   'export-json': () => download(`diario-palestra-backup-${stamp()}.json`, JSON.stringify({app: 'diario-palestra', v: 1, exportedAt: new Date().toISOString(), plans: S.plans, settings: S.settings, sessions: S.sessions.map(({_synced, ...s}) => s)}, null, 1), 'application/json'),
   'sync-now': () => sync(),
   'reset-plans': () => { S.plans = defaultPlans(); editPlanId = null; markPlansDirty(); render(); toast('Schede di esempio ripristinate'); },
-  'rest-': () => { T.end -= 15000; T.dur = Math.max(1, T.dur - 15); tick(); }, 'rest+': () => { if (T.end < Date.now()) { T.end = Date.now(); T.dur = 0; } T.end += 15000; T.dur += 15; restartTick(); }, 'rest-x': () => stopRest()
 };
 function movePex(k, dir){ const a = planById(editPlanId).exercises, t = k + dir; if (t < 0 || t >= a.length) return; [a[k], a[t]] = [a[t], a[k]]; markPlansDirty(); render(); }
 function stepField(b, dir){
@@ -1188,25 +1178,11 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet();
 });
 
-/* ---------- 7. TIMER RECUPERO, SUONO, SCHERMO ACCESO ---------- */
-const T = {end: 0, dur: 0, int: null};
-let AC = null, WL = null;
-function ensureAudio(){ try { if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (A) AC = new A(); } if (AC && AC.state === 'suspended') AC.resume(); } catch (e) {} }
-function beep(){ if (!AC) return; try { [0, .22, .44].forEach(o => { const t = AC.currentTime + o, os = AC.createOscillator(), g = AC.createGain(); os.frequency.value = 880; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .18); os.connect(g); g.connect(AC.destination); os.start(t); os.stop(t + .2); }); } catch (e) {} }
+/* ---------- 7. VIBRAZIONE E SCHERMO ACCESO ---------- */
+let WL = null;
+function ensureAudio(){}
 function vib(p){ try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
-function startRest(sec){ if (!sec) return; T.dur = sec; T.end = Date.now() + sec * 1000; restartTick(); }
-function restartTick(){ $('#rest').hidden = false; $('#rest').classList.remove('over'); $('#rest-l').textContent = 'Recupero'; clearInterval(T.int); T.int = setInterval(tick, 250); tick(); }
-function tick(){
-  const left = (T.end - Date.now()) / 1000;
-  if (left <= 0) {
-    clearInterval(T.int); T.int = null;
-    $('#rest-t').textContent = 'Via!'; $('#rest-l').textContent = 'Recupero finito'; $('#rest-fill').style.width = '100%'; $('#rest').classList.add('over');
-    beep(); vib([200, 100, 200]); setTimeout(() => { if (!T.int) stopRest(); }, 5000); return;
-  }
-  $('#rest-t').textContent = fmtRest(Math.ceil(left));
-  $('#rest-fill').style.width = (100 * (1 - left / T.dur)).toFixed(1) + '%';
-}
-function stopRest(){ clearInterval(T.int); T.int = null; $('#rest').hidden = true; }
+function stopRest(){}
 async function wake(){ try { if ('wakeLock' in navigator && D && view === 'workout' && !WL) { WL = await navigator.wakeLock.request('screen'); WL.addEventListener('release', () => WL = null); } } catch (e) { WL = null; } }
 function unwake(){ try { WL && WL.release(); } catch (e) {} WL = null; }
 
@@ -1214,7 +1190,7 @@ function unwake(){ try { WL && WL.release(); } catch (e) {} WL = null; }
 setInterval(() => { const el = $('#elapsed'); if (el && D) el.textContent = fmtDur(Date.now() - D.start); }, 1000);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  wake(); if (T.int) tick();
+  wake();
   if (C.col && Date.now() - C.lastSync > 20000) sync();
 });
 window.addEventListener('online', () => sync());
