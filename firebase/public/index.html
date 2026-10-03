@@ -138,6 +138,7 @@ select.field,select.pex-name{appearance:auto}
 .badge.pr{background:var(--up);color:var(--surface)}
 .sets{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .set-head,.set{display:grid;grid-template-columns:24px 1fr 1fr 46px;gap:6px;align-items:center}
+.set-head.timed,.set.timed{grid-template-columns:24px 1fr 46px}
 .set-head{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center}
 .idx{font:700 16px/28px var(--f-display);text-align:center;color:var(--muted);border-radius:7px;height:28px}
 .idx.up{background:var(--up-bg);color:var(--up)} .idx.down{background:var(--down-bg);color:var(--down)} .idx.eq{background:var(--eq-bg);color:var(--ink)} .idx.new{background:var(--accent-bg);color:var(--accent)}
@@ -380,7 +381,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.8 · 3 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '1.9 · 3 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -416,14 +417,14 @@ function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = fals
 const GROUPS = ['Petto', 'Schiena', 'Spalle', 'Bicipiti', 'Tricipiti', 'Gambe', 'Femorali e glutei', 'Polpacci', 'Addome', 'Cardio', 'Altro'];
 const LIB_DEFAULT = {
   'Petto': ['Panca piana bilanciere', 'Panca piana manubri', 'Panca inclinata bilanciere', 'Panca inclinata manubri', 'Chest press', 'Chest press inclinata', 'Croci con manubri', 'Croci ai cavi', 'Pectoral machine', 'Dip alle parallele', 'Piegamenti'],
-  'Schiena': ['Lat machine presa larga', 'Lat machine presa stretta', 'Trazioni alla sbarra', 'Trazioni assistite', 'Rematore con bilanciere', 'Rematore con manubrio', 'Pulley basso', 'Rematore alla macchina', 'T-bar row', 'Pullover al cavo', 'Hyperextension'],
+  'Schiena': ['Lat machine presa larga', 'Lat machine presa stretta', 'Trazioni alla sbarra', 'Trazioni assistite', 'Rematore con bilanciere', 'Rematore con manubrio', 'Pulley basso', 'Rematore alla macchina', 'T-bar row', 'Pullover al cavo', 'Hyperextension', 'Dead hang'],
   'Spalle': ['Military press bilanciere', 'Shoulder press manubri', 'Shoulder press machine', 'Arnold press', 'Alzate laterali', 'Alzate laterali al cavo', 'Alzate posteriori', 'Reverse pec deck', 'Face pull', 'Tirate al mento'],
   'Bicipiti': ['Curl con manubri', 'Curl con bilanciere', 'Curl a martello', 'Curl ai cavi', 'Curl su panca Scott', 'Curl concentrato', 'Curl su panca inclinata'],
   'Tricipiti': ['Push-down ai cavi', 'French press', 'Estensioni sopra la testa al cavo', 'Estensioni con manubrio sopra la testa', 'Kickback', 'Dip alla panca', 'Panca presa stretta'],
-  'Gambe': ['Squat bilanciere', 'Hack squat', 'Pendulum squat', 'Leg press', 'Leg extension', 'Goblet squat', 'Affondi con manubri', 'Bulgarian split squat', 'Step-up'],
+  'Gambe': ['Wall sit', 'Squat bilanciere', 'Hack squat', 'Pendulum squat', 'Leg press', 'Leg extension', 'Goblet squat', 'Affondi con manubri', 'Bulgarian split squat', 'Step-up'],
   'Femorali e glutei': ['Stacco rumeno', 'Stacco da terra', 'Leg curl', 'Leg curl seduto', 'Hip thrust', 'Glute bridge', 'Abductor machine', 'Adductor machine', 'Kickback ai cavi'],
   'Polpacci': ['Calf raise in piedi', 'Calf raise seduto', 'Calf alla leg press'],
-  'Addome': ['Crunch al cavo', 'Crunch', 'Plank', 'Plank laterale', 'Leg raise', 'Russian twist', 'Ab wheel'],
+  'Addome': ['Crunch al cavo', 'Crunch', 'Plank', 'Plank laterale', 'Hollow hold', 'Leg raise', 'Russian twist', 'Ab wheel'],
   'Cardio': ['Tapis roulant', 'Cyclette', 'Ellittica', 'Vogatore', 'Stair climber'],
   'Altro': []
 };
@@ -431,12 +432,17 @@ const defaultLibrary = () => GROUPS.flatMap(g => LIB_DEFAULT[g].map(name => g ==
 const defGroup = name => GROUPS.find(g => LIB_DEFAULT[g].some(n => norm(n) === norm(name))) || 'Altro';
 /* Tipi di esercizio: pesi (kg × ripetizioni), tapis roulant (minuti, velocità, inclinazione), altro cardio (minuti, livello) */
 const cardioKind = name => /tapis|treadmill/i.test(name) ? 'tapis' : 'cardio';
-const defKind = name => defGroup(name) === 'Cardio' ? cardioKind(name) : 'strength';
+// Esercizi statici (isometrici): si misurano in secondi
+const isTimeName = name => /plank|wall sit|isometric|dead hang|hollow|l-sit|isometri/i.test(name);
+const isCardioKind = k => k === 'tapis' || k === 'cardio';
+const defKind = name => defGroup(name) === 'Cardio' ? cardioKind(name) : isTimeName(name) ? 'time' : 'strength';
 const FIELDS = {
   tapis: [{k: 'min', label: 'Durata', unit: 'min', step: 1, def: 20}, {k: 'v', label: 'Velocità', unit: 'km/h', step: 0.5, def: 6}, {k: 'inc', label: 'Inclinazione', unit: '%', step: 0.5, def: 5, max: 30}],
-  cardio: [{k: 'min', label: 'Durata', unit: 'min', step: 1, def: 20}, {k: 'lvl', label: 'Livello', unit: '', step: 1, def: 5}]
+  cardio: [{k: 'min', label: 'Durata', unit: 'min', step: 1, def: 20}, {k: 'lvl', label: 'Livello', unit: '', step: 1, def: 5}],
+  time: [{k: 'sec', label: 'Secondi', unit: 's', step: 5, def: 30}]
 };
 const isCardio = s => !!s && s.min !== undefined;
+const isTime = s => !!s && s.sec !== undefined;
 
 /* ex(nome, serie, repMin, repMax, nota, recupero in secondi, salto peso in kg) */
 function ex(name, sets, repMin, repMax, note = '', rest = 90, step = 0.5){ return {id: uid(), name, group: defGroup(name), kind: defKind(name), sets, repMin, repMax, rest, step, note}; }
@@ -455,7 +461,7 @@ function defaultPlans(){
       ex('Shoulder press manubri', 3, 8, 10, 'Alt: shoulder press machine'),
       ex('Leg curl', 3, 10, 12, '', 60),
       ex('Push-down ai cavi', 3, 10, 12, 'Corda o barra', 60),
-      ex('Plank', 3, 30, 45, 'Ripetizioni = secondi', 60, 0)]},
+      ex('Plank', 3, 30, 45, '', 60, 0)]},
     {id:'C', name:'Giorno C', exercises:[
       ex('Stacco rumeno', 3, 8, 10, 'Alt: hip thrust', 120),
       ex('Panca inclinata manubri', 3, 8, 10),
@@ -477,7 +483,7 @@ function upgradePlans(plans, v){
   return plans;
 }
 function groupOf(name){ const f = (S && S.library || []).find(x => norm(x.name) === norm(name)); return f ? f.group : defGroup(name); }
-function kindOf(name){ const f = (S && S.library || []).find(x => norm(x.name) === norm(name)); if (f) return f.kind || (f.group === 'Cardio' ? cardioKind(f.name) : 'strength'); return defKind(name); }
+function kindOf(name){ const f = (S && S.library || []).find(x => norm(x.name) === norm(name)); if (f) return f.kind || (f.group === 'Cardio' ? cardioKind(f.name) : isTimeName(f.name) ? 'time' : 'strength'); return defKind(name); }
 function ensureCardio(){ if (!S.library.some(x => x.group === 'Cardio')) LIB_DEFAULT.Cardio.forEach(name => S.library.push({name, group: 'Cardio', kind: cardioKind(name)})); }
 function ensureInLibrary(name, group){ if (name && !S.library.some(x => norm(x.name) === norm(name))) S.library.push({name, group: group || defGroup(name), custom: true}); }
 if (!S.library) S.library = defaultLibrary();
@@ -549,7 +555,7 @@ function sync(){ return serial(async () => {
     if (plansDoc && (plansDoc.updatedAt || 0) > (S.plansUpdatedAt || 0) && Array.isArray(plansDoc.plans)) {
       S.plans = upgradePlans(plansDoc.plans, plansDoc.v); if (Array.isArray(plansDoc.library)) S.library = plansDoc.library; ensureCardio(); S.plans.forEach(p => p.exercises.forEach(e => ensureInLibrary(e.name, e.group))); fixKinds(); S.settings = Object.assign({rest: 90}, plansDoc.settings || {}); S.plansUpdatedAt = plansDoc.updatedAt;
     } else if (!plansDoc || (S.plansUpdatedAt || 0) > (plansDoc.updatedAt || 0) || (plansDoc.v || 1) < 3) addPending('plans');
-    persist();
+    fixKinds(); persist();
     const ok = await flush();
     setSync(ok ? 'synced' : 'offline'); if (!ok) retryLater();
     rerenderIfSafe();
@@ -668,9 +674,10 @@ function setSync(s){
 const e1 = s => s.w > 0 ? s.w * (1 + s.r / 30) : s.r;
 const cardioScore = s => s.v !== undefined ? (s.min * s.v / 60) * (1 + (s.inc || 0) / 10) : s.min * (1 + (s.lvl || 0) / 10);
 // Valore usato per record e grafico: forza stimata (pesi), km percorsi (tapis), minuti (altro cardio)
-const metric = s => isCardio(s) ? (s.v !== undefined ? s.min * s.v / 60 : s.min) : e1(s);
+const metric = s => isTime(s) ? s.sec : isCardio(s) ? (s.v !== undefined ? s.min * s.v / 60 : s.min) : e1(s);
 function setCmp(c, p){
-  if (!p || isCardio(c) !== isCardio(p)) return 'new';
+  if (!p || isCardio(c) !== isCardio(p) || isTime(c) !== isTime(p)) return 'new';
+  if (isTime(c)) return c.sec > p.sec ? 'up' : c.sec < p.sec ? 'down' : 'eq';
   if (isCardio(c)) {   // cardio: più minuti, velocità, inclinazione o livello = meglio
     let u = 0, d = 0;
     ['min', 'v', 'inc', 'lvl'].forEach(k => { if (c[k] === undefined) return; const a = c[k] || 0, b = p[k] || 0; if (a > b + 1e-9) u++; else if (a < b - 1e-9) d++; });
@@ -706,10 +713,11 @@ const fmtCardio = s => [fmtNum(s.min) + ' min', s.v !== undefined ? fmtNum(s.v) 
 function fmtSets(sets){
   if (!sets || !sets.length) return '—';
   if (isCardio(sets[0])) return sets.map(fmtCardio).join(' + ');
+  if (isTime(sets[0])) return sets.map(s => fmtRest(s.sec)).join(', ');
   if (sets.every(s => s.w === sets[0].w)) { const w = sets[0].w; return (w > 0 ? fmtNum(w) + ' kg × ' : 'corpo libero × ') + sets.map(s => s.r).join(', '); }
   return sets.map(s => fmtNum(s.w) + '×' + s.r).join(', ') + ' kg';
 }
-function bestSet(hist){ let b = null; for (const h of hist) for (const s of h.sets) if (!b || (isCardio(s) ? metric(s) > metric(b.s) : (s.w > b.s.w || (s.w === b.s.w && s.r > b.s.r)))) b = {s, date: h.date}; return b; }
+function bestSet(hist){ let b = null; for (const h of hist) for (const s of h.sets) if (!b || (isCardio(s) || isTime(s) ? metric(s) > metric(b.s) : (s.w > b.s.w || (s.w === b.s.w && s.r > b.s.r)))) b = {s, date: h.date}; return b; }
 const volume = sets => sets.reduce((a, s) => a + (s.w || 0) * (s.r || 0), 0);
 const planById = id => S.plans.find(p => p.id === id);
 const planLetter = p => { const m = p.name.trim().match(/(\S+)$/); const t = m ? m[1] : p.name; return (t.length <= 2 ? t : p.name.trim()[0] || '?').toUpperCase(); };
@@ -811,7 +819,7 @@ function exCard(e, i){
     : `<div class="last"><div><span class="lbl">Ultima volta</span><span class="muted">Prima volta: ${e.kind && e.kind !== 'strength' ? 'imposta i valori di oggi' : 'imposta il peso di partenza'}</span></div></div>`;
   const hint = last && !e.bumped && readyToProgress(last.sets, e)
     ? `<div class="hint"><span>Range chiuso l'ultima volta: sali di peso</span><button data-a="bump">+${fmtNum(e.step)} kg</button></div>` : '';
-  const kind = e.kind || 'strength', cardio = kind !== 'strength';
+  const kind = e.kind || 'strength', cardio = isCardioKind(kind), timed = kind === 'time';
   const rows = cardio ? e.sets.map((s, j) => {
     const c = s.done ? (last ? setCmp(s, last.sets[j]) : 'new') : '';
     return `<div class="set tratto${s.done ? ' done' : ''}" data-s="${j}">
@@ -820,6 +828,12 @@ function exCard(e, i){
       ${FIELDS[kind].map(f => `<div class="frow"><span class="flabel">${f.label}${f.unit ? ` <small>${f.unit}</small>` : ''}</span>
         <div class="step"><button data-a="f-" data-f="${f.k}" aria-label="${f.label} meno">−</button><input class="num" data-f="${f.k}" inputmode="decimal" enterkeyhint="done" aria-label="${f.label}" value="${fmtNum(s[f.k])}"><button data-a="f+" data-f="${f.k}" aria-label="${f.label} più">+</button></div></div>`).join('')}
     </div>`;
+  }).join('') : timed ? e.sets.map((s, j) => {
+    const c = s.done ? (last ? setCmp(s, last.sets[j]) : 'new') : '';
+    return `<div class="set timed${s.done ? ' done' : ''}" data-s="${j}">
+      <span class="idx ${c}">${j + 1}</span>
+      <div class="step"><button data-a="f-" data-f="sec" aria-label="Meno 5 secondi">−</button><input class="num" data-f="sec" inputmode="numeric" enterkeyhint="done" aria-label="Secondi serie ${j + 1}" value="${s.sec}"><button data-a="f+" data-f="sec" aria-label="Più 5 secondi">+</button></div>
+      <button class="check" data-a="done" aria-pressed="${s.done}" aria-label="Serie ${j + 1} completata">✓</button></div>`;
   }).join('') : e.sets.map((s, j) => {
     const c = s.done ? (last ? setCmp(s, last.sets[j]) : 'new') : '';
     return `<div class="set${s.done ? ' done' : ''}" data-s="${j}">
@@ -830,14 +844,14 @@ function exCard(e, i){
   }).join('');
   return `<section class="ex${complete ? ' complete' : ''}" id="ex-${i}" data-i="${i}">
     <header class="ex-head"><div><h2 class="ex-name">${esc(e.name)}</h2>
-      <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : `${e.sets.length} × ${e.repMin}–${e.repMax}`}</div>
+      <div class="ex-target">${cardio ? `Cardio · ${kind === 'tapis' ? 'durata, velocità e inclinazione' : 'durata e livello'}` : timed ? `${e.sets.length} serie · a tempo (secondi)` : `${e.sets.length} × ${e.repMin}–${e.repMax}`}</div>
       ${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}</div>
       <div class="ex-side">${b}<div class="ex-move"><button data-a="wk-up" ${i === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="wk-down" ${i === D.exercises.length - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div></header>
     <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
     ${e.planNote ? `<p class="ex-note">${esc(e.planNote)}</p>` : ''}
     ${lastHtml}${hint}
     ${kind === 'tapis' ? '<p class="muted small" style="margin:8px 4px 0">Cambi velocità o inclinazione durante la corsa? Tocca <b>+</b> su Tratti e segna ogni parte (es. 10 min al 5% e 10 min al 12%).</p>' : ''}
-    <div class="sets">${cardio ? '' : '<div class="set-head"><span>#</span><span>kg</span><span>reps</span><span></span></div>'}${rows}</div>
+    <div class="sets">${cardio ? '' : timed ? '<div class="set-head timed"><span>#</span><span>secondi</span><span></span></div>' : '<div class="set-head"><span>#</span><span>kg</span><span>reps</span><span></span></div>'}${rows}</div>
     ${e.showNote || e.note ? `<textarea class="note-in" data-f="note" rows="1" placeholder="Nota rapida (es. sedile 4, presa stretta)">${esc(e.note)}</textarea>` : ''}
     <div class="ex-actions"><div class="setstep"><span>${cardio ? 'Tratti' : 'Serie'}</span><button data-a="set-" ${e.sets.length <= 1 ? 'disabled' : ''} aria-label="Togli ${cardio ? 'un tratto' : 'una serie'}">−</button><b>${e.sets.length}</b><button data-a="set+" aria-label="Aggiungi ${cardio ? 'un tratto' : 'una serie'}">+</button></div>
       ${e.showNote || e.note ? '' : '<button data-a="note">Nota</button>'}<span class="grow"></span>
@@ -921,16 +935,16 @@ function openExercise(name, exId){
   const hist = historyFor(exId, name);
   const x = '<button class="x" data-a="sheet-close" aria-label="Chiudi">✕</button>';
   if (!hist.length) return sheet(`${x}<h2>${esc(name)}</h2><p class="muted">Nessun dato ancora. Dopo il primo allenamento qui trovi ultima volta, miglior serie e andamento.</p>`);
-  const b = bestSet(hist), pts = hist.slice(0, 12).reverse().map(h => ({t: h.date, v: isCardio(h.sets[0]) ? h.sets.reduce((a, x) => a + metric(x), 0) : Math.max(...h.sets.map(e1))}));
-  const c0 = hist[0].sets[0], chartLbl = isCardio(c0) ? (c0.v !== undefined ? 'Distanza (km)' : 'Minuti totali') : 'Forza stimata' + (c0.w > 0 ? ' (kg, 1RM)' : ' (reps)');
+  const b = bestSet(hist), pts = hist.slice(0, 12).reverse().map(h => ({t: h.date, v: isCardio(h.sets[0]) ? h.sets.reduce((a, x) => a + metric(x), 0) : Math.max(...h.sets.map(metric))}));
+  const c0 = hist[0].sets[0], chartLbl = isTime(c0) ? 'Tenuta migliore (secondi)' : isCardio(c0) ? (c0.v !== undefined ? 'Distanza (km)' : 'Minuti totali') : 'Forza stimata' + (c0.w > 0 ? ' (kg, 1RM)' : ' (reps)');
   const trend = hist.slice(0, 4).map((h, k) => hist[k + 1] ? cmpSets(h.sets, hist[k + 1].sets) : null).filter(Boolean);
   sheet(`${x}<h2>${esc(name)}</h2><p class="muted small">${hist.length} allenamenti registrati</p>
     <div class="stats">
       <div class="stat"><span class="eyebrow">Ultima volta</span><b${isCardio(hist[0].sets[0]) ? ' class="sm-b"' : ''}>${fmtSets(hist[0].sets)}</b><small>${relDay(hist[0].date)}</small></div>
-      <div class="stat"><span class="eyebrow">${isCardio(b.s) ? 'Miglior sessione' : 'Miglior serie'}</span><b${isCardio(b.s) ? ' class="sm-b"' : ''}>${isCardio(b.s) ? fmtCardio(b.s) : b.s.w > 0 ? fmtNum(b.s.w) + ' kg × ' + b.s.r : b.s.r + ' reps'}</b><small>${fmtDate(b.date)}</small></div>
+      <div class="stat"><span class="eyebrow">${isCardio(b.s) ? 'Miglior sessione' : 'Miglior serie'}</span><b${isCardio(b.s) ? ' class="sm-b"' : ''}>${isTime(b.s) ? fmtRest(b.s.sec) : isCardio(b.s) ? fmtCardio(b.s) : b.s.w > 0 ? fmtNum(b.s.w) + ' kg × ' + b.s.r : b.s.r + ' reps'}</b><small>${fmtDate(b.date)}</small></div>
     </div>
     ${trend.length ? `<div class="eyebrow">Andamento recente</div><div class="mini-badges" style="margin:6px 0 12px;flex-wrap:wrap">${trend.map(badge).join('')}</div>` : ''}
-    ${pts.length > 1 ? `<div class="eyebrow">${chartLbl}</div>${chartSvg(pts)}<p class="muted small" style="margin:0 0 10px">${isCardio(c0) ? (c0.v !== undefined ? 'Minuti × velocità: sale se corri più a lungo o più veloce.' : 'Sale se ti alleni più a lungo.') : 'Sale se aumenti il peso o le ripetizioni.'}</p>` : ''}
+    ${pts.length > 1 ? `<div class="eyebrow">${chartLbl}</div>${chartSvg(pts)}<p class="muted small" style="margin:0 0 10px">${isTime(c0) ? 'Sale se tieni la posizione più a lungo.' : isCardio(c0) ? (c0.v !== undefined ? 'Minuti × velocità: sale se corri più a lungo o più veloce.' : 'Sale se ti alleni più a lungo.') : 'Sale se aumenti il peso o le ripetizioni.'}</p>` : ''}
     <div class="eyebrow" style="margin-top:8px">Tutte le sedute</div>
     ${hist.map(h => `<div class="sx"><span class="muted small">${fmtDate(h.date)}</span><span class="sx-s">${fmtSets(h.sets)}</span></div>`).join('')}`);
 }
@@ -968,7 +982,7 @@ function pexCard(e, k, n){
     ${prev && prev.ss ? '<div class="ss-tag">Superserie con l\'esercizio sopra</div>' : ''}
     <div class="pex-top"><span class="pex-n">${k + 1}</span>${libSelect(k, e.name)}
       <div class="pex-move"><button data-a="ex-up" ${k === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="ex-down" ${k === n - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div>
-    <div class="pex-grid">${(e.kind || 'strength') !== 'strength' ? mini('Tratti', 'sets', e.sets) : `${mini('Serie', 'sets', e.sets)}${mini('Reps min', 'repMin', e.repMin)}${mini('Reps max', 'repMax', e.repMax)}${mini('Salto peso', 'step', fmtNum(e.step) + ' kg')}`}</div>
+    <div class="pex-grid">${isCardioKind(e.kind) ? mini('Tratti', 'sets', e.sets) : e.kind === 'time' ? mini('Serie', 'sets', e.sets) + '<p class="muted small" style="margin:0;align-self:center">Esercizio statico: in allenamento segni i secondi.</p>' : `${mini('Serie', 'sets', e.sets)}${mini('Reps min', 'repMin', e.repMin)}${mini('Reps max', 'repMax', e.repMax)}${mini('Salto peso', 'step', fmtNum(e.step) + ' kg')}`}</div>
     <input class="pex-note" id="pex-note-${k}" data-ef="note" value="${esc(e.note)}" placeholder="Alternative o note (es. Alt: chest press)" aria-label="Note">
     <div class="pex-foot">${k < n - 1 ? `<button class="btn-ghost sm ss-btn" data-a="ex-ss" aria-pressed="${!!e.ss}">${e.ss ? 'Superserie con il successivo ✓' : '+ Superserie con il successivo'}</button>` : '<span></span>'}<button class="btn-ghost danger sm" data-a="ex-del" data-confirm="Conferma rimozione">Rimuovi</button></div></section>`;
 }
@@ -1050,6 +1064,7 @@ function initSets(last, kind, n, repMin){
   const sets = [];
   for (let k = 0; k < n; k++) {
     let ls = last && (last.sets[k] || last.sets[last.sets.length - 1]);
+    if (kind === 'time') { sets.push({sec: ls ? (ls.sec !== undefined ? ls.sec : ls.r !== undefined ? ls.r : 30) : 30, done: false}); continue; }   // i vecchi plank segnati come "ripetizioni = secondi" valgono come secondi
     if (ls && isCardio(ls) !== (kind !== 'strength')) ls = null;
     if (kind === 'strength') sets.push({w: ls ? ls.w : 0, r: ls ? ls.r : repMin, done: false});
     else { const o = {done: false}; FIELDS[kind].forEach(f => o[f.k] = ls && ls[f.k] !== undefined ? ls[f.k] : f.def); sets.push(o); }
@@ -1058,7 +1073,7 @@ function initSets(last, kind, n, repMin){
 }
 function draftEx(name, group, tpl){
   const kind = kindOf(name), last = lastFor(null, name);
-  const n = kind !== 'strength' ? (last ? last.sets.length : 1) : tpl && (tpl.kind || 'strength') === 'strength' ? tpl.sets.length : 3;
+  const n = isCardioKind(kind) ? (last ? last.sets.length : 1) : kind === 'time' ? (last ? last.sets.length : 3) : tpl && (tpl.kind || 'strength') === 'strength' ? tpl.sets.length : 3;
   return initSets(last, kind, n, tpl && tpl.repMin ? tpl.repMin : 10);
 }
 function choose(name){
@@ -1076,10 +1091,10 @@ function choose(name){
     D.exercises.splice(at, 0, nx);
     persistDraft(); closeSheet(); render(); const n = $('#ex-' + at); if (n) n.scrollIntoView({block: 'start'});
   } else if (PK.mode === 'plan-add') {
-    const p = planById(editPlanId), k = kindOf(name); p.exercises.push(ex(name, k === 'strength' ? 3 : 1, 8, 12, '', k === 'strength' ? 90 : 0)); Object.assign(p.exercises[p.exercises.length - 1], {group, kind: k});
+    const p = planById(editPlanId), k = kindOf(name); p.exercises.push(ex(name, isCardioKind(k) ? 1 : 3, 8, 12, '', k === 'strength' ? 90 : 0)); Object.assign(p.exercises[p.exercises.length - 1], {group, kind: k});
     markPlansDirty(); closeSheet(); render(); const f = $(`.pex[data-k="${p.exercises.length - 1}"]`); if (f) f.scrollIntoView({block: 'center'});
   } else if (PK.mode === 'plan-set') {
-    const e = planById(editPlanId).exercises[PK.i]; e.name = name; e.group = group; e.kind = kindOf(name); e.id = uid(); if (e.kind !== 'strength') e.sets = 1;
+    const e = planById(editPlanId).exercises[PK.i]; e.name = name; e.group = group; e.kind = kindOf(name); e.id = uid(); if (isCardioKind(e.kind)) e.sets = 1;
     markPlansDirty(); closeSheet(); refreshPex(PK.i);
   }
 }
@@ -1119,7 +1134,7 @@ function saveWorkout(mode){
   const s = {id: uid(), planId: D.planId, planName: D.planName, start: D.start, end: Date.now(),
     skipped: D.exercises.filter(e => e.skipped).map(e => e.name),
     exercises: D.exercises.filter(e => !e.skipped).map(e => ({exId: e.exId, name: e.name, group: e.group, ss: e.ss || undefined, swappedFrom: e.swappedFrom || undefined, repMin: e.repMin, repMax: e.repMax, note: e.note.trim(),
-      sets: e.sets.filter(x => (mode === 'all' || x.done) && (isCardio(x) ? x.min > 0 : x.r > 0)).map(({done, ...x}) => x)})).filter(e => e.sets.length)};
+      sets: e.sets.filter(x => (mode === 'all' || x.done) && (isCardio(x) ? x.min > 0 : isTime(x) ? x.sec > 0 : x.r > 0)).map(({done, ...x}) => x)})).filter(e => e.sets.length)};
   if (!s.exercises.length) { closeSheet(); return toast(D.exercises.length ? 'Nessuna serie da salvare' : 'Aggiungi almeno un esercizio'); }
   const items = s.exercises.map(e => {
     const hist = historyFor(e.exId, e.name), prev = hist[0];
@@ -1143,9 +1158,9 @@ async function download(filename, text, mime){
 }
 const csvCell = v => { v = String(v ?? ''); return /[;"\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
 function toCSV(){
-  const rows = [['Data', 'Ora', 'Scheda', 'Esercizio', 'Serie', 'Peso (kg)', 'Ripetizioni', 'Volume (kg)', 'Minuti', 'Velocità (km/h)', 'Inclinazione (%)', 'Livello', 'Durata seduta (min)', 'Nota']];
+  const rows = [['Data', 'Ora', 'Scheda', 'Esercizio', 'Serie', 'Peso (kg)', 'Ripetizioni', 'Volume (kg)', 'Secondi', 'Minuti', 'Velocità (km/h)', 'Inclinazione (%)', 'Livello', 'Durata seduta (min)', 'Nota']];
   for (const s of S.sessions) for (const e of s.exercises) e.sets.forEach((x, k) => rows.push([
-    fmtDate(s.start, {day:'2-digit', month:'2-digit', year:'numeric'}), fmtClock(s.start), s.planName, e.name, k + 1, isCardio(x) ? '' : fmtNum(x.w), isCardio(x) ? '' : x.r, isCardio(x) ? '' : fmtNum(x.w * x.r), isCardio(x) ? fmtNum(x.min) : '', x.v !== undefined ? fmtNum(x.v) : '', x.inc !== undefined ? fmtNum(x.inc) : '', x.lvl !== undefined ? fmtNum(x.lvl) : '', Math.round((s.end - s.start) / 60000), k === 0 ? e.note || '' : '']));
+    fmtDate(s.start, {day:'2-digit', month:'2-digit', year:'numeric'}), fmtClock(s.start), s.planName, e.name, k + 1, isCardio(x) || isTime(x) ? '' : fmtNum(x.w), isCardio(x) || isTime(x) ? '' : x.r, isCardio(x) || isTime(x) ? '' : fmtNum(x.w * x.r), isTime(x) ? x.sec : '', isCardio(x) ? fmtNum(x.min) : '', x.v !== undefined ? fmtNum(x.v) : '', x.inc !== undefined ? fmtNum(x.inc) : '', x.lvl !== undefined ? fmtNum(x.lvl) : '', Math.round((s.end - s.start) / 60000), k === 0 ? e.note || '' : '']));
   return '﻿' + rows.map(r => r.map(csvCell).join(';')).join('\r\n');
 }
 const stamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -1158,7 +1173,7 @@ async function importFile(file){
       if (!s || !s.id || have.has(s.id) || !Array.isArray(s.exercises)) continue;
       S.sessions.push({id: String(s.id), planId: s.planId, planName: String(s.planName || 'Allenamento'), start: +s.start, end: +s.end || +s.start,
         exercises: s.exercises.map(e => ({exId: e.exId, name: String(e.name || ''), group: e.group, swappedFrom: e.swappedFrom, repMin: e.repMin, repMax: e.repMax, note: e.note || '',
-          sets: (e.sets || []).map(x => isCardio(x) ? Object.fromEntries(['min', 'v', 'inc', 'lvl'].filter(k => x[k] !== undefined).map(k => [k, +x[k] || 0])) : {w: +x.w || 0, r: +x.r || 0})}))});
+          sets: (e.sets || []).map(x => isTime(x) ? {sec: +x.sec || 0} : isCardio(x) ? Object.fromEntries(['min', 'v', 'inc', 'lvl'].filter(k => x[k] !== undefined).map(k => [k, +x[k] || 0])) : {w: +x.w || 0, r: +x.r || 0})}))});
       addPending('s-' + s.id); n++;
     }
     S.sessions.sort((a, b) => a.start - b.start);
@@ -1287,7 +1302,7 @@ document.addEventListener('change', ev => {
   if (t.tagName === 'SELECT' && t.dataset.ef === 'name') {
     const k = +t.closest('.pex').dataset.k, e = planById(editPlanId).exercises[k];
     if (t.value === '__new') { refreshPex(k); return openPicker('plan-set', k, e.group || 'Petto', true); }
-    e.name = t.value; e.group = groupOf(t.value); e.kind = kindOf(t.value); if (e.kind !== 'strength') e.sets = 1; e.id = uid(); markPlansDirty(); refreshPex(k); return;
+    e.name = t.value; e.group = groupOf(t.value); e.kind = kindOf(t.value); if (isCardioKind(e.kind)) e.sets = 1; e.id = uid(); markPlansDirty(); refreshPex(k); return;
   }
   if (t.classList.contains('num') && t.closest('.ex')) { persistDraft(); refreshCard(+t.closest('.ex').dataset.i); }
   if (t.dataset.pf === 'name' && !t.value.trim()) { planById(editPlanId).name = 'Scheda'; markPlansDirty(); render(); }
@@ -1329,11 +1344,13 @@ window.addEventListener('online', () => sync());
 // Correzione: esercizi cardio (es. tapis roulant) scelti dal menu prima della v1.6 risultavano "a pesi"
 function fixKinds(){
   let changed = false;
-  S.plans.forEach(p => p.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k) { e.kind = k; if (k !== 'strength') e.sets = 1; changed = true; } }));
-  if (D) D.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k && !e.sets.some(x => x.done)) { e.kind = k; e.sets = initSets(lastFor(null, e.name), k, k === 'strength' ? 3 : 1, e.repMin || 10); } });
+  S.plans.forEach(p => p.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k) { e.kind = k; if (isCardioKind(k)) e.sets = 1; if (k === 'time' && e.note === 'Ripetizioni = secondi') e.note = ''; changed = true; } }));
+  // vecchi plank & co. salvati come "ripetizioni = secondi": diventano secondi veri
+  S.sessions.forEach(ss => { let mod = false; ss.exercises.forEach(e => { if (kindOf(e.name) === 'time' && e.sets.length && e.sets.every(x => x.sec === undefined && x.r !== undefined && !x.w)) { e.sets = e.sets.map(x => ({sec: x.r})); mod = true; } }); if (mod) { if (ss._synced) addPending('s-' + ss.id); changed = true; } });
+  if (D) D.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k && !e.sets.some(x => x.done)) { e.kind = k; e.sets = initSets(lastFor(null, e.name), k, isCardioKind(k) ? 1 : Math.max(1, e.sets.length), e.repMin || 10); } });
   return changed;
 }
-if (fixKinds()) { persist(); if (S.plansUpdatedAt) markPlansDirty(); }
+if (fixKinds()) { persist(); if (S.plansUpdatedAt) markPlansDirty(); else scheduleFlush(); }
 persistDraft();
 if (D) view = 'workout';
 render();

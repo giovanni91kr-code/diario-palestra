@@ -19,6 +19,7 @@ Web app mobile-first per registrare gli allenamenti A / B / C e progredire nel t
 3. Per ogni serie: correggi con **−/+** (o tocca il numero e scrivi), poi tocca **✓**. Il peso sale e scende di **0,5 kg** (si cambia per esercizio in Schede).
    - Il numero della serie si colora: **verde** = meglio dell'ultima volta, **grigio** = pari, **rosso** = peggio.
    - Se cambi il peso della serie 1, le serie successive si aggiornano da sole.
+   - Gli esercizi statici (plank, plank laterale, wall sit, dead hang, hollow hold) si segnano **a tempo**: secondi per serie, ±5 s.
 4. Se l'ultima volta hai chiuso il range di ripetizioni su tutte le serie, compare **"sali di peso +0,5 kg"**: un tocco e il peso aumenta su tutte le serie.
 5. **Cambi idea durante la seduta?** Ogni esercizio ha due pulsanti:
    - **⇄ Sostituisci** apre la libreria divisa per parte del corpo (si apre già sul gruppo giusto, con ricerca). Serie e range restano quelli della scheda, i pesi si precompilano con l'ultima volta di quell'esercizio. La scheda base non cambia.
