@@ -170,6 +170,8 @@ select.field,select.pex-name{appearance:auto}
 .setstep b{min-width:24px;text-align:center;font:700 20px var(--f-display);font-variant-numeric:tabular-nums}
 .ex-actions .setstep button{width:42px;height:42px;padding:0;font-size:24px;font-weight:500;color:var(--ink);border-radius:10px}
 .note-in{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;margin-top:6px;resize:vertical;font-size:15px}
+.prep{display:flex;flex-direction:column;gap:4px;margin-top:12px;padding:12px 14px;border-radius:var(--r);background:var(--accent-bg);color:var(--ink);font-size:14px}
+.prep>b{font:700 17px var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:var(--accent)}
 .wk-extra{display:flex;flex-direction:column;gap:10px;margin-top:16px}
 
 /* barre fisse in basso */
@@ -357,7 +359,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
 
 <div class="wkbar" id="wkbar" hidden><div class="wkbar-in">
   <div class="wkbar-c" id="wkbar-c"></div>
-  <button class="btn big" data-a="save">Chiudi e salva</button>
+  <button class="btn big" data-a="save" id="wkbar-go">Chiudi e salva</button>
 </div></div>
 
 <div class="sheet" id="sheet" hidden>
@@ -381,7 +383,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '1.9 · 3 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '2.0 · 27 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -756,7 +758,7 @@ function vHome(){
   const next = nextPlanId(), wk = weekCount();
   let h = `<div class="week"><div><div class="eyebrow">Questa settimana</div><div class="week-n"><b>${wk}</b> / 3 allenamenti</div></div>
     <div class="dots" aria-hidden="true">${[0,1,2].map(i => `<i class="${i < wk ? 'on' : ''}"></i>`).join('')}</div></div>`;
-  if (D) h += `<button class="resume" data-a="resume"><span><b>In corso: ${esc(D.planName)}</b><small>Iniziato alle ${fmtClock(D.start)} · ${doneCount(D)} serie fatte</small></span><span class="resume-go">Riprendi</span></button>`;
+  if (D) h += `<button class="resume" data-a="resume"><span><b>In corso: ${esc(D.planName)}</b><small>${D.start ? `Iniziato alle ${fmtClock(D.start)} · ${doneCount(D)} serie fatte` : 'Pronto, non ancora iniziato'}</small></span><span class="resume-go">Riprendi</span></button>`;
   h += `<h1 class="title">Scegli la scheda</h1><div class="plans">`;
   for (const p of S.plans) {
     const last = [...S.sessions].reverse().find(s => s.planId === p.id);
@@ -780,7 +782,8 @@ function vHome(){
 function vWorkout(){
   return `<div class="wk-head"><button class="back" data-a="go" data-v="home" aria-label="Torna alla home">‹</button>
     <div class="wk-t"><div class="wk-name">${esc(D.planName)}</div>
-    <div class="wk-meta"><span id="elapsed">${fmtDur(Date.now() - D.start)}</span> · iniziato alle ${fmtClock(D.start)}</div></div></div>
+    <div class="wk-meta">${D.start ? `<span id="elapsed">${fmtDur(Date.now() - D.start)}</span> · iniziato alle ${fmtClock(D.start)}` : 'Non ancora iniziato'}</div></div></div>
+    ${D.start ? '' : `<div class="prep"><b>Prepara l'allenamento</b><span>Sposta, sostituisci, aggiungi o salta esercizi. Il cronometro parte quando tocchi <b>▶ Inizia</b> in basso (o alla prima serie spuntata).</span></div>`}
     <div class="ex-list">${exBlocks()}</div>
     ${D.exercises.length ? '' : `<div class="empty" style="margin-top:14px"><b>Scegli il primo esercizio</b>Aggiungili uno alla volta mentre ti alleni: pesi e ripetizioni partono dall'ultima volta.</div>`}
     <div class="wk-extra"><button class="${D.planId === 'free' ? 'btn big' : 'btn-ghost'}" data-a="add-extra">+ ${D.planId === 'free' ? 'Aggiungi esercizio' : 'Esercizio extra'}</button>
@@ -860,6 +863,8 @@ function exCard(e, i){
 function refreshCard(i){ const el = $('#ex-' + i); if (el && D) el.outerHTML = exCard(D.exercises[i], i); updateCounts(); }
 function updateCounts(){
   if (!D) return;
+  const go = $('#wkbar-go');
+  if (go) { go.textContent = D.start ? 'Chiudi e salva' : '▶ Inizia'; go.dataset.a = D.start ? 'save' : 'begin'; }
   const t = `<b>${doneCount(D)}/${totalSets(D)}</b>serie fatte`;
   const c = $('#wkbar-c'); if (c) c.innerHTML = t;
 }
@@ -1105,12 +1110,12 @@ function closeSheet(){ $('#sheet').hidden = true; }
 /* ---------- 6. AZIONI ---------- */
 function startWorkout(pid){
   const p = pid === 'free' ? {id: 'free', name: 'Allenamento libero', exercises: []} : planById(pid); if (!p) return;
-  if (D && D.planId !== pid) return sheet(`<h2>Hai un allenamento in corso</h2><p class="muted">${esc(D.planName)}, iniziato alle ${fmtClock(D.start)} con ${doneCount(D)} serie fatte.</p>
+  if (D && D.planId !== pid) return sheet(`<h2>Hai un allenamento in corso</h2><p class="muted">${esc(D.planName)}${D.start ? `, iniziato alle ${fmtClock(D.start)} con ${doneCount(D)} serie fatte` : ', non ancora iniziato'}.</p>
     <div class="stack"><button class="btn big" data-a="resume">Riprendi ${esc(D.planName)}</button>
     <button class="btn-ghost danger" data-a="switch-ok" data-id="${esc(pid)}" data-confirm="Tocca di nuovo: le serie non salvate andranno perse">Scarta e inizia ${esc(p.name)}</button></div>`);
   if (!D) {
     if (!p.exercises.length && pid !== 'free') { toast('Aggiungi prima qualche esercizio a questa scheda'); editPlanId = p.id; view = 'plans'; return render(); }
-    D = {planId: p.id, planName: p.name, start: Date.now(), exercises: p.exercises.map(e => {
+    D = {planId: p.id, planName: p.name, start: null, exercises: p.exercises.map(e => {
       const kind = kindOf(e.name), sets = initSets(lastFor(e.id, e.name), kind, e.sets, e.repMin);
       return {exId: e.id, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin, repMax: e.repMax, rest: e.rest, step: e.step, planNote: e.note, note: '', sets};
     })};
@@ -1131,6 +1136,7 @@ function adjust(i, j, f, dir){
   persistDraft(); refreshCard(i);
 }
 function saveWorkout(mode){
+  if (!D.start) D.start = Date.now();
   const s = {id: uid(), planId: D.planId, planName: D.planName, start: D.start, end: Date.now(),
     skipped: D.exercises.filter(e => e.skipped).map(e => e.name),
     exercises: D.exercises.filter(e => !e.skipped).map(e => ({exId: e.exId, name: e.name, group: e.group, ss: e.ss || undefined, swappedFrom: e.swappedFrom || undefined, repMin: e.repMin, repMax: e.repMax, note: e.note.trim(),
@@ -1188,6 +1194,7 @@ const ACT = {
   resume: () => { closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake(); },
   'switch-ok': b => { D = null; persistDraft(); stopRest(); startWorkout(b.dataset.id); },
   'f-': (b, i, j) => adjust(i, j, b.dataset.f, -1), 'f+': (b, i, j) => adjust(i, j, b.dataset.f, 1),
+  begin: () => { if (D && !D.start) { D.start = Date.now(); persistDraft(); render(); window.scrollTo(0, 0); wake(); toast('Allenamento iniziato'); } },
   'wk-up': (b, i) => moveEx(i, -1), 'wk-down': (b, i) => moveEx(i, 1),
   'pick-pos': b => { PK.pos = b.dataset.p; document.querySelectorAll('#pick-pos button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === PK.pos)); },
   'wk-ss': (b, i) => { D.exercises[i].ss = !D.exercises[i].ss; persistDraft(); render(); },
@@ -1196,7 +1203,9 @@ const ACT = {
   'r-': (b, i, j) => adjust(i, j, 'r', -1), 'r+': (b, i, j) => adjust(i, j, 'r', 1),
   done: (b, i, j) => {
     ensureAudio();
-    const e = D.exercises[i], s = e.sets[j]; s.done = !s.done; persistDraft(); refreshCard(i);
+    const e = D.exercises[i], s = e.sets[j]; s.done = !s.done;
+    if (s.done && !D.start) { D.start = Date.now(); persistDraft(); render(); wake(); }
+    persistDraft(); refreshCard(i);
     if (s.done) {
       vib(25);
       const nx = D.exercises[i + 1];
@@ -1234,7 +1243,7 @@ const ACT = {
   'del-last': () => { const id = lastSummary && lastSummary.sid; if (id) { S.sessions = S.sessions.filter(x => x.id !== id); persist(); queue('del:s-' + id); } lastSummary = null; view = 'home'; render(); toast('Allenamento eliminato'); },
   'discard-ok': () => { D = null; persistDraft(); unwake(); stopRest(); closeSheet(); view = 'home'; render(); },
   save: () => {
-    const tot = totalSets(D), dn = doneCount(D), dur = fmtMin(Date.now() - D.start);
+    const tot = totalSets(D), dn = doneCount(D), dur = fmtMin(Date.now() - (D.start || Date.now()));
     const cont = '<button class="btn-ghost" data-a="sheet-close">Continua ad allenarti</button><button class="btn-ghost danger" data-a="discard-ok" data-confirm="Tocca di nuovo: niente finirà nel registro">Elimina senza salvare</button>';
     const sk = D.exercises.filter(e => e.skipped).length; const skTxt = sk ? ` · ${sk} ${sk === 1 ? 'esercizio saltato' : 'esercizi saltati'}` : '';
     if (dn === tot) return sheet(`<h2>Chiudere l'allenamento?</h2><p class="muted">Tutte le ${dn} serie completate · ${dur}${skTxt}</p><div class="stack"><button class="btn big" data-a="save-all">Chiudi e salva</button>${cont}</div>`);
@@ -1334,7 +1343,7 @@ Object.assign(ACT, {
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 /* ---------- 8. AVVIO ---------- */
-setInterval(() => { const el = $('#elapsed'); if (el && D) el.textContent = fmtDur(Date.now() - D.start); }, 1000);
+setInterval(() => { const el = $('#elapsed'); if (el && D && D.start) el.textContent = fmtDur(Date.now() - D.start); }, 1000);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   wake();
