@@ -152,6 +152,9 @@ select.field,select.pex-name{appearance:auto}
 .ex-actions .setstep button{width:42px;height:42px;padding:0;font-size:24px;font-weight:500;color:var(--ink);border-radius:10px}
 .note-in{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;margin-top:6px;resize:vertical;font-size:15px}
 .repeat-link{width:100%;margin-top:2px;min-height:44px;border:0;background:none;color:var(--accent);font-weight:600;font-size:15px;text-align:left;padding:0 6px}
+.last.rec{background:var(--up-bg)}
+.last.rec .lbl{color:var(--up)}
+.rec-btn{flex:none;border:0;border-radius:10px;background:var(--up);color:#fff;font-weight:700;font-size:14px;padding:10px 12px;white-space:nowrap}
 .prep{display:flex;flex-direction:column;gap:4px;margin-top:12px;padding:12px 14px;border-radius:var(--r);background:var(--accent-bg);color:var(--ink);font-size:14px}
 .prep>b{font:700 17px var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:var(--accent)}
 .wk-extra{display:flex;flex-direction:column;gap:10px;margin-top:16px}
@@ -348,7 +351,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '2.1 · 28 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '2.2 · 28 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -412,7 +415,10 @@ const isCardio = s => !!s && s.min !== undefined;
 const isTime = s => !!s && s.sec !== undefined;
 
 /* ex(nome, serie, repMin, repMax, nota, recupero in secondi, salto peso in kg) */
-function ex(name, sets, repMin, repMax, note = '', rest = 90, step = 0.5){ return {id: uid(), name, group: defGroup(name), kind: defKind(name), sets, repMin, repMax, rest, step, note}; }
+// Macchine e cavi salgono a blocchi da 5 kg; i pesi liberi (manubri, bilanciere) di 0,5 kg
+const isMachineName = name => /macchina|machine|cavo|cavi|leg press|lat machine|pulley|chest press|pectoral|pec deck|leg curl|leg extension|hack squat|pendulum|abductor|adductor|smith|face pull|push-down|pushdown|calf raise seduto|calf alla leg press/i.test(name);
+const defStep = name => isMachineName(name) ? 5 : 0.5;
+function ex(name, sets, repMin, repMax, note = '', rest = 90, step = defStep(name)){ return {id: uid(), name, group: defGroup(name), kind: defKind(name), sets, repMin, repMax, rest, step, note}; }
 function defaultPlans(){
   return [
     {id:'A', name:'Giorno A', exercises:[
@@ -583,6 +589,8 @@ function cmpSets(cur, prev){
 const BADGE = {up:'▲ Meglio', eq:'= Pari', down:'▼ Meno', new:'Nuovo'};
 const badge = c => `<span class="badge ${c}">${BADGE[c]}</span>`;
 
+// Salto peso già scelto in una scheda per quell'esercizio (se c'è)
+function planStep(name){ for (const p of S.plans) for (const e of p.exercises) if (norm(e.name) === norm(name) && typeof e.step === 'number') return e.step; return undefined; }
 function historyFor(exId, name, before = Infinity){
   const k = norm(name), out = [];
   for (let a = S.sessions.length - 1; a >= 0; a--) {
@@ -601,6 +609,8 @@ function fmtSets(sets){
   if (sets.every(s => s.w === sets[0].w)) { const w = sets[0].w; return (w > 0 ? fmtNum(w) + ' kg × ' : 'corpo libero × ') + sets.map(s => s.r).join(', '); }
   return sets.map(s => fmtNum(s.w) + '×' + s.r).join(', ') + ' kg';
 }
+// Seduta migliore: somma della forza stimata di tutte le serie (pesi), dei secondi (statici), dei km/minuti (cardio)
+function bestSession(hist){ let b = null, bs = -1; for (const h of hist) { const sc = h.sets.reduce((a, x) => a + (metric(x) || 0), 0); if (sc > bs) { bs = sc; b = h; } } return b; }
 function bestSet(hist){ let b = null; for (const h of hist) for (const s of h.sets) if (!b || (isCardio(s) || isTime(s) ? metric(s) > metric(b.s) : (s.w > b.s.w || (s.w === b.s.w && s.r > b.s.r)))) b = {s, date: h.date}; return b; }
 const volume = sets => sets.reduce((a, s) => a + (s.w || 0) * (s.r || 0), 0);
 const planById = id => S.plans.find(p => p.id === id);
@@ -700,8 +710,12 @@ function exCard(e, i){
   const done = e.sets.map((s, j) => s.done ? j : -1).filter(j => j >= 0);
   const b = done.length ? badge(last ? cmpSets(done.map(j => e.sets[j]), done.map(j => last.sets[j])) : 'new') : '';
   const complete = e.sets.length && done.length === e.sets.length;
+  const hist = historyFor(e.exId, e.name), best = hist.length > 1 ? bestSession(hist) : null;
+  const lastIsBest = best && last && best.sid === last.sid;
+  const recHtml = best && !lastIsBest
+    ? `<div class="last rec"><div><span class="lbl">Record · ${fmtDate(best.date, {day: 'numeric', month: 'short'})}</span><b>${fmtSets(best.sets)}</b></div><button class="rec-btn" data-a="use-rec">Usa record</button></div>` : '';
   const lastHtml = last
-    ? `<div class="last"><div><span class="lbl">Ultima volta · ${relDay(last.date)}</span><b>${fmtSets(last.sets)}</b>${last.note ? `<span class="last-note">“${esc(last.note)}”</span>` : ''}</div></div>`
+    ? `<div class="last"><div><span class="lbl">Ultima volta · ${relDay(last.date)}${lastIsBest ? ' · è il tuo record ★' : ''}</span><b>${fmtSets(last.sets)}</b>${last.note ? `<span class="last-note">“${esc(last.note)}”</span>` : ''}</div></div>`
     : `<div class="last"><div><span class="lbl">Ultima volta</span><span class="muted">Prima volta: ${e.kind && e.kind !== 'strength' ? 'imposta i valori di oggi' : 'imposta il peso di partenza'}</span></div></div>`;
   const hint = last && !e.bumped && readyToProgress(last.sets, e)
     ? `<div class="hint"><span>Range chiuso l'ultima volta: sali di peso</span><button data-a="bump">+${fmtNum(e.step)} kg</button></div>` : '';
@@ -735,7 +749,7 @@ function exCard(e, i){
       <div class="ex-side">${b}<div class="ex-move"><button data-a="wk-up" ${i === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button><button data-a="wk-down" ${i === D.exercises.length - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button></div></div></header>
     <div class="ex-tools"><button data-a="swap">⇄ Sostituisci</button>${e.extra ? '<button data-a="remove">Rimuovi</button>' : '<button data-a="skip">Salta</button>'}${i < D.exercises.length - 1 ? `<button data-a="wk-ss" aria-pressed="${!!e.ss}" title="Collega in superserie con l'esercizio sotto">${e.ss ? 'Superserie ✓' : '+ Superserie'}</button>` : ''}</div>
     ${e.planNote ? `<p class="ex-note">${esc(e.planNote)}</p>` : ''}
-    ${lastHtml}${hint}
+    ${lastHtml}${recHtml}${hint}
     ${kind === 'tapis' ? '<p class="muted small" style="margin:8px 4px 0">Cambi velocità o inclinazione durante la corsa? Tocca <b>+</b> su Tratti e segna ogni parte (es. 10 min al 5% e 10 min al 12%).</p>' : ''}
     <div class="sets">${cardio ? '' : timed ? '<div class="set-head timed"><span>#</span><span>secondi</span><span></span></div>' : '<div class="set-head"><span>#</span><span>kg</span><span>reps</span><span></span></div>'}${rows}</div>
     ${e.showNote || e.note ? `<textarea class="note-in" data-f="note" rows="1" placeholder="Nota rapida (es. sedile 4, presa stretta)">${esc(e.note)}</textarea>` : ''}
@@ -824,13 +838,13 @@ function openExercise(name, exId){
   const hist = historyFor(exId, name);
   const x = '<button class="x" data-a="sheet-close" aria-label="Chiudi">✕</button>';
   if (!hist.length) return sheet(`${x}<h2>${esc(name)}</h2><p class="muted">Nessun dato ancora. Dopo il primo allenamento qui trovi ultima volta, miglior serie e andamento.</p>`);
-  const b = bestSet(hist), pts = hist.slice(0, 12).reverse().map(h => ({t: h.date, v: isCardio(h.sets[0]) ? h.sets.reduce((a, x) => a + metric(x), 0) : Math.max(...h.sets.map(metric))}));
+  const b = bestSession(hist), pts = hist.slice(0, 12).reverse().map(h => ({t: h.date, v: isCardio(h.sets[0]) ? h.sets.reduce((a, x) => a + metric(x), 0) : Math.max(...h.sets.map(metric))}));
   const c0 = hist[0].sets[0], chartLbl = isTime(c0) ? 'Tenuta migliore (secondi)' : isCardio(c0) ? (c0.v !== undefined ? 'Distanza (km)' : 'Minuti totali') : 'Forza stimata' + (c0.w > 0 ? ' (kg, 1RM)' : ' (reps)');
   const trend = hist.slice(0, 4).map((h, k) => hist[k + 1] ? cmpSets(h.sets, hist[k + 1].sets) : null).filter(Boolean);
   sheet(`${x}<h2>${esc(name)}</h2><p class="muted small">${hist.length} allenamenti registrati</p>
     <div class="stats">
       <div class="stat"><span class="eyebrow">Ultima volta</span><b${isCardio(hist[0].sets[0]) ? ' class="sm-b"' : ''}>${fmtSets(hist[0].sets)}</b><small>${relDay(hist[0].date)}</small></div>
-      <div class="stat"><span class="eyebrow">${isCardio(b.s) ? 'Miglior sessione' : 'Miglior serie'}</span><b${isCardio(b.s) ? ' class="sm-b"' : ''}>${isTime(b.s) ? fmtRest(b.s.sec) : isCardio(b.s) ? fmtCardio(b.s) : b.s.w > 0 ? fmtNum(b.s.w) + ' kg × ' + b.s.r : b.s.r + ' reps'}</b><small>${fmtDate(b.date)}</small></div>
+      <div class="stat"><span class="eyebrow">Miglior seduta</span><b class="sm-b">${fmtSets(b.sets)}</b><small>${fmtDate(b.date)}</small></div>
     </div>
     ${trend.length ? `<div class="eyebrow">Andamento recente</div><div class="mini-badges" style="margin:6px 0 12px;flex-wrap:wrap">${trend.map(badge).join('')}</div>` : ''}
     ${pts.length > 1 ? `<div class="eyebrow">${chartLbl}</div>${chartSvg(pts)}<p class="muted small" style="margin:0 0 10px">${isTime(c0) ? 'Sale se tieni la posizione più a lungo.' : isCardio(c0) ? (c0.v !== undefined ? 'Minuti × velocità: sale se corri più a lungo o più veloce.' : 'Sale se ti alleni più a lungo.') : 'Sale se aumenti il peso o le ripetizioni.'}</p>` : ''}
@@ -972,10 +986,10 @@ function choose(name){
     e.sets = draftEx(name, group, e); e.kind = kindOf(name);
     if (norm(name) === norm(orig)) { delete e.swappedFrom; e.exId = e.origExId || e.exId; e.planNote = e.origNote || ''; }
     else { e.swappedFrom = orig; e.origExId = e.origExId || e.exId; e.origNote = e.origNote ?? e.planNote; e.exId = null; e.planNote = ''; }
-    e.name = name; e.group = group; e.bumped = false;
+    e.name = name; e.group = group; e.bumped = false; e.step = planStep(name) ?? defStep(name);
     persistDraft(); closeSheet(); refreshCard(PK.i); toast('Esercizio sostituito');
   } else if (PK.mode === 'extra') {
-    const nx = {exId: null, name, group, kind: kindOf(name), repMin: 8, repMax: 12, rest: kindOf(name) === 'strength' ? 90 : 0, step: 0.5, planNote: '', note: '', extra: true, sets: draftEx(name, group)};
+    const nx = {exId: null, name, group, kind: kindOf(name), repMin: 8, repMax: 12, rest: kindOf(name) === 'strength' ? 90 : 0, step: defStep(name), planNote: '', note: '', extra: true, sets: draftEx(name, group)};
     const at = PK.pos === 'start' ? 0 : D.exercises.length;
     D.exercises.splice(at, 0, nx);
     persistDraft(); closeSheet(); render(); const n = $('#ex-' + at); if (n) n.scrollIntoView({block: 'start'});
@@ -983,7 +997,7 @@ function choose(name){
     const p = planById(editPlanId), k = kindOf(name); p.exercises.push(ex(name, isCardioKind(k) ? 1 : 3, 8, 12, '', k === 'strength' ? 90 : 0)); Object.assign(p.exercises[p.exercises.length - 1], {group, kind: k});
     markPlansDirty(); closeSheet(); render(); const f = $(`.pex[data-k="${p.exercises.length - 1}"]`); if (f) f.scrollIntoView({block: 'center'});
   } else if (PK.mode === 'plan-set') {
-    const e = planById(editPlanId).exercises[PK.i]; e.name = name; e.group = group; e.kind = kindOf(name); e.id = uid(); if (isCardioKind(e.kind)) e.sets = 1;
+    const e = planById(editPlanId).exercises[PK.i]; e.name = name; e.group = group; e.kind = kindOf(name); e.step = defStep(name); delete e.stepSet; e.id = uid(); if (isCardioKind(e.kind)) e.sets = 1;
     markPlansDirty(); closeSheet(); refreshPex(PK.i);
   }
 }
@@ -999,7 +1013,7 @@ function repeatSession(id){
   const free = s.planId === 'free' || !planById(s.planId);
   D = {planId: free ? 'free' : s.planId, planName: s.planName, start: null, exercises: s.exercises.map(e => {
     const kind = kindOf(e.name), n = Math.max(1, e.sets.length);
-    return {exId: e.exId || null, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: 0.5,
+    return {exId: e.exId || null, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: (planStep(e.name) ?? defStep(e.name)),
       planNote: '', note: '', extra: free, sets: initSets(lastFor(null, e.name), kind, n, e.repMin || 8)};
   })};
   persistDraft(); closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake();
@@ -1010,7 +1024,7 @@ function saveAsPlan(id){
   const name = s.planId === 'free' ? 'Libero ' + fmtDate(s.start, {day: 'numeric', month: 'short'}) : s.planName + ' (copia)';
   const p = {id: uid(), name, exercises: s.exercises.map(e => {
     const kind = kindOf(e.name);
-    const o = {id: uid(), name: e.name, group: e.group || groupOf(e.name), kind, sets: Math.max(1, e.sets.length), repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: 0.5, note: ''};
+    const o = {id: uid(), name: e.name, group: e.group || groupOf(e.name), kind, sets: Math.max(1, e.sets.length), repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: (planStep(e.name) ?? defStep(e.name)), note: ''};
     if (e.ss) o.ss = true; return o;
   })};
   S.plans.push(p); markPlansDirty(); closeSheet(); lastSummary = null;
@@ -1104,6 +1118,12 @@ const ACT = {
   'f-': (b, i, j) => adjust(i, j, b.dataset.f, -1), 'f+': (b, i, j) => adjust(i, j, b.dataset.f, 1),
   repeat: b => repeatSession(b.dataset.id),
   'save-plan': b => saveAsPlan(b.dataset.id),
+  'use-rec': (b, i) => {
+    const e = D.exercises[i], best = bestSession(historyFor(e.exId, e.name)); if (!best) return;
+    const fresh = initSets(best, e.kind || 'strength', Math.max(e.sets.length, best.sets.length), e.repMin || 8);
+    e.sets = fresh.map((x, j) => e.sets[j] && e.sets[j].done ? e.sets[j] : x);
+    persistDraft(); refreshCard(i); toast('Serie compilate con il tuo record');
+  },
   begin: () => { if (D && !D.start) { D.start = Date.now(); persistDraft(); render(); window.scrollTo(0, 0); wake(); toast('Allenamento iniziato'); } },
   'wk-up': (b, i) => moveEx(i, -1), 'wk-down': (b, i) => moveEx(i, 1),
   'pick-pos': b => { PK.pos = b.dataset.p; document.querySelectorAll('#pick-pos button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === PK.pos)); },
@@ -1188,7 +1208,7 @@ function stepField(b, dir){
   if (f === 'repMin') { e.repMin = clamp(e.repMin + dir, 1, 99); if (e.repMax < e.repMin) e.repMax = e.repMin; }
   if (f === 'repMax') { e.repMax = clamp(e.repMax + dir, 1, 99); if (e.repMin > e.repMax) e.repMin = e.repMax; }
   if (f === 'rest') e.rest = clamp(e.rest + dir * 15, 0, 600);
-  if (f === 'step') { const L = [0, 0.5, 1, 1.25, 2, 2.5, 5, 10]; let ix = L.indexOf(e.step); if (ix < 0) ix = 1; e.step = L[clamp(ix + dir, 0, L.length - 1)]; }
+  if (f === 'step') { const L = [0, 0.5, 1, 1.25, 2, 2.5, 5, 10]; let ix = L.indexOf(e.step); if (ix < 0) ix = 1; e.step = L[clamp(ix + dir, 0, L.length - 1)]; e.stepSet = true; }
   markPlansDirty(); refreshPex(k);
 }
 
@@ -1221,7 +1241,7 @@ document.addEventListener('change', ev => {
   if (t.tagName === 'SELECT' && t.dataset.ef === 'name') {
     const k = +t.closest('.pex').dataset.k, e = planById(editPlanId).exercises[k];
     if (t.value === '__new') { refreshPex(k); return openPicker('plan-set', k, e.group || 'Petto', true); }
-    e.name = t.value; e.group = groupOf(t.value); e.kind = kindOf(t.value); if (isCardioKind(e.kind)) e.sets = 1; e.id = uid(); markPlansDirty(); refreshPex(k); return;
+    e.name = t.value; e.group = groupOf(t.value); e.kind = kindOf(t.value); e.step = defStep(t.value); delete e.stepSet; if (isCardioKind(e.kind)) e.sets = 1; e.id = uid(); markPlansDirty(); refreshPex(k); return;
   }
   if (t.classList.contains('num') && t.closest('.ex')) { persistDraft(); refreshCard(+t.closest('.ex').dataset.i); }
   if (t.dataset.pf === 'name' && !t.value.trim()) { planById(editPlanId).name = 'Scheda'; markPlansDirty(); render(); }
@@ -1252,6 +1272,9 @@ window.addEventListener('online', () => sync());
 // Correzione: esercizi cardio (es. tapis roulant) scelti dal menu prima della v1.6 risultavano "a pesi"
 function fixKinds(){
   let changed = false;
+  // macchine/cavi ancora a 0,5 kg (impostazione automatica vecchia) -> 5 kg; non tocca i valori scelti a mano
+  S.plans.forEach(p => p.exercises.forEach(e => { if (!e.stepSet && e.step === 0.5 && isMachineName(e.name)) { e.step = 5; changed = true; } }));
+  if (D) D.exercises.forEach(e => { if (!e.stepSet && e.step === 0.5 && isMachineName(e.name)) e.step = 5; });
   S.plans.forEach(p => p.exercises.forEach(e => { const k = kindOf(e.name); if ((e.kind || 'strength') !== k) { e.kind = k; if (isCardioKind(k)) e.sets = 1; if (k === 'time' && e.note === 'Ripetizioni = secondi') e.note = ''; changed = true; } }));
   // vecchi plank & co. salvati come "ripetizioni = secondi": diventano secondi veri
   S.sessions.forEach(ss => { let mod = false; ss.exercises.forEach(e => { if (kindOf(e.name) === 'time' && e.sets.length && e.sets.every(x => x.sec === undefined && x.r !== undefined && !x.w)) { e.sets = e.sets.map(x => ({sec: x.r})); mod = true; } }); if (mod) { if (ss._synced) addPending('s-' + ss.id); changed = true; } });
