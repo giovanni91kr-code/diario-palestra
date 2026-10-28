@@ -151,6 +151,7 @@ select.field,select.pex-name{appearance:auto}
 .setstep b{min-width:24px;text-align:center;font:700 20px var(--f-display);font-variant-numeric:tabular-nums}
 .ex-actions .setstep button{width:42px;height:42px;padding:0;font-size:24px;font-weight:500;color:var(--ink);border-radius:10px}
 .note-in{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;margin-top:6px;resize:vertical;font-size:15px}
+.repeat-link{width:100%;margin-top:2px;min-height:44px;border:0;background:none;color:var(--accent);font-weight:600;font-size:15px;text-align:left;padding:0 6px}
 .prep{display:flex;flex-direction:column;gap:4px;margin-top:12px;padding:12px 14px;border-radius:var(--r);background:var(--accent-bg);color:var(--ink);font-size:14px}
 .prep>b{font:700 17px var(--f-display);text-transform:uppercase;letter-spacing:.03em;color:var(--accent)}
 .wk-extra{display:flex;flex-direction:column;gap:10px;margin-top:16px}
@@ -347,7 +348,7 @@ try { document.documentElement.dataset.theme = localStorage.getItem('dp.theme') 
    ===================================================================== */
 
 /* ---------- 1. UTILITÀ ---------- */
-const APP_VERSION = '2.0 · 27 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
+const APP_VERSION = '2.1 · 28 ott 2026';   // aggiornala a ogni modifica: la vedi in fondo alla sezione Dati
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -657,6 +658,7 @@ function vHome(){
   h += `<button class="plan-card free" data-a="start" data-id="free"><span class="plan-letter">+</span>
     <span class="plan-body"><span class="plan-name">Allenamento libero</span><span class="plan-ex">Scegli gli esercizi mentre ti alleni</span>
     <span class="plan-last">${lastFree ? 'Ultima volta ' + relDay(lastFree.start) : 'Mai svolto'}</span></span><span class="chev" aria-hidden="true">›</span></button>`;
+  if (lastFree) h += `<button class="repeat-link" data-a="repeat" data-id="${esc(lastFree.id)}">↻ Ripeti l'ultimo libero (${fmtDate(lastFree.start, {day: 'numeric', month: 'short'})})</button>`;
   return h + '</div>';
 }
 
@@ -764,6 +766,7 @@ function vSummary(){
       <div class="sx-s">${fmtSets(x.sets)}</div>${x.prev ? `<div class="muted small">prima: ${fmtSets(x.prev)}</div>` : ''}</div>
       <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge(x.c)}${x.pr ? '<span class="badge pr">Record</span>' : ''}</div></div>`).join('')}</div>
     <div class="stack"><button class="btn big" data-a="go" data-v="home">Fatto</button>
+      <button class="btn-ghost" data-a="save-plan" data-id="${esc(s.sid)}">Salva come scheda (per ripeterlo)</button>
       <button class="btn-ghost danger" data-a="del-last" data-confirm="Tocca di nuovo per toglierlo dal registro">Era una prova: elimina dal registro</button></div>`;
 }
 
@@ -843,7 +846,9 @@ function openSession(id){
     ${s.exercises.map(e => { const p = lastFor(e.exId, e.name, s.start); return `<div class="sx"><div style="min-width:0"><div class="sx-n">${esc(e.name)}</div>
       <div class="sx-s">${fmtSets(e.sets)}</div>${e.swappedFrom ? `<div class="swap-from">⇄ al posto di ${esc(e.swappedFrom)}</div>` : ''}${e.note ? `<div class="muted small">“${esc(e.note)}”</div>` : ''}</div>${badge(p ? cmpSets(e.sets, p.sets) : 'new')}</div>`; }).join('')}
     ${s.skipped && s.skipped.length ? `<p class="muted small">Saltati: ${esc(s.skipped.join(', '))}</p>` : ''}
-    <div class="stack"><button class="btn-ghost danger" data-a="del-session" data-id="${esc(s.id)}" data-confirm="Tocca di nuovo per eliminare">Elimina allenamento</button></div>`);
+    <div class="stack"><button class="btn" data-a="repeat" data-id="${esc(s.id)}">↻ Ripeti questo allenamento</button>
+      <button class="btn-ghost" data-a="save-plan" data-id="${esc(s.id)}">Salva come scheda</button>
+      <button class="btn-ghost danger" data-a="del-session" data-id="${esc(s.id)}" data-confirm="Tocca di nuovo per eliminare">Elimina allenamento</button></div>`);
 }
 
 function vPlans(){
@@ -987,6 +992,30 @@ function sheet(html){ $('#sheet-body').innerHTML = html; $('#sheet').hidden = fa
 function closeSheet(){ $('#sheet').hidden = true; }
 
 /* ---------- 6. AZIONI ---------- */
+// Ripete un allenamento già fatto: stessi esercizi, stesso ordine, stesso numero di serie, valori dall'ultima volta
+function repeatSession(id){
+  const s = S.sessions.find(x => x.id === id); if (!s) return;
+  if (D) { closeSheet(); toast('Hai già un allenamento aperto: chiudilo o annullalo prima'); view = 'workout'; return render(); }
+  const free = s.planId === 'free' || !planById(s.planId);
+  D = {planId: free ? 'free' : s.planId, planName: s.planName, start: null, exercises: s.exercises.map(e => {
+    const kind = kindOf(e.name), n = Math.max(1, e.sets.length);
+    return {exId: e.exId || null, name: e.name, group: e.group || groupOf(e.name), kind, ss: !!e.ss, repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: 0.5,
+      planNote: '', note: '', extra: free, sets: initSets(lastFor(null, e.name), kind, n, e.repMin || 8)};
+  })};
+  persistDraft(); closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake();
+}
+// Trasforma un allenamento fatto in una scheda fissa (compare in home accanto ad A, B, C)
+function saveAsPlan(id){
+  const s = S.sessions.find(x => x.id === id); if (!s) return;
+  const name = s.planId === 'free' ? 'Libero ' + fmtDate(s.start, {day: 'numeric', month: 'short'}) : s.planName + ' (copia)';
+  const p = {id: uid(), name, exercises: s.exercises.map(e => {
+    const kind = kindOf(e.name);
+    const o = {id: uid(), name: e.name, group: e.group || groupOf(e.name), kind, sets: Math.max(1, e.sets.length), repMin: e.repMin || 8, repMax: e.repMax || 12, rest: 0, step: 0.5, note: ''};
+    if (e.ss) o.ss = true; return o;
+  })};
+  S.plans.push(p); markPlansDirty(); closeSheet(); lastSummary = null;
+  editPlanId = p.id; view = 'plans'; render(); window.scrollTo(0, 0); toast(`Scheda "${name}" creata: la trovi anche in Allena`);
+}
 function startWorkout(pid){
   const p = pid === 'free' ? {id: 'free', name: 'Allenamento libero', exercises: []} : planById(pid); if (!p) return;
   if (D && D.planId !== pid) return sheet(`<h2>Hai un allenamento in corso</h2><p class="muted">${esc(D.planName)}${D.start ? `, iniziato alle ${fmtClock(D.start)} con ${doneCount(D)} serie fatte` : ', non ancora iniziato'}.</p>
@@ -1073,6 +1102,8 @@ const ACT = {
   resume: () => { closeSheet(); view = 'workout'; render(); window.scrollTo(0, 0); wake(); },
   'switch-ok': b => { D = null; persistDraft(); stopRest(); startWorkout(b.dataset.id); },
   'f-': (b, i, j) => adjust(i, j, b.dataset.f, -1), 'f+': (b, i, j) => adjust(i, j, b.dataset.f, 1),
+  repeat: b => repeatSession(b.dataset.id),
+  'save-plan': b => saveAsPlan(b.dataset.id),
   begin: () => { if (D && !D.start) { D.start = Date.now(); persistDraft(); render(); window.scrollTo(0, 0); wake(); toast('Allenamento iniziato'); } },
   'wk-up': (b, i) => moveEx(i, -1), 'wk-down': (b, i) => moveEx(i, 1),
   'pick-pos': b => { PK.pos = b.dataset.p; document.querySelectorAll('#pick-pos button').forEach(x => x.setAttribute('aria-pressed', x.dataset.p === PK.pos)); },
